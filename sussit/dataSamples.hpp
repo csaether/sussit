@@ -4,7 +4,7 @@ class dataSamples {
 public:
 	unsigned __int64 rawSeq;
 //	unsigned samplesPerCycle;
-	unsigned phaseOff;
+	unsigned phaseOff;  // mistaken idea when using bogus voltage signal
 	int deltadjust;
 
 	cBuff<short> amins;
@@ -13,8 +13,8 @@ public:
 	cBuff<short> bmaxs;
 	dataSamples() : rawSeq(0),
 //		samplesPerCycle(4096),  // 271
-		phaseOff(0*SamplesPerCycle/271),  // 6*SamplesPerCycle/271
-		deltadjust(SamplesPerCycle/271)
+		phaseOff(0*SamplesPerCycle/271),  // mistaken idea - zero with correct voltage signal
+		deltadjust(SamplesPerCycle/271 > 0 ? SamplesPerCycle/271 : 1)
 	{}
 
 	virtual void

@@ -10,7 +10,7 @@ sussChanges::sussChanges(void) : lastcycri(0),
 		wattFudgeDivor( 21743 ),  // 42343/2, 43230, 8640 (diff probe)
 		chunkSize(12),
 		chunkRun(1),
-		chgDiff(25),
+		chgDiff(75),
 		preChgout(12),
 		postChgout(12),  // will only have 1 to 2 chunks ahead
 		lastTimeStampCycle(0),
@@ -61,7 +61,7 @@ sussChanges::processData( dataSamples *dsp, int maxcycles )
 		// get at least an initial chunk run's worth of data plus phaseoffet amount
 		// plus a full cycle so initial crossing can be set
 		do {
-			newvals += dsp->getSamples( 150 );
+			newvals += dsp->getSamples( 100 );
 		} while ( newvals < (SamplesPerCycle*(chunkSize*chunkRun+3) + dsp->phaseOff) );
 
 		writeRawOut( dsp );
@@ -71,7 +71,7 @@ sussChanges::processData( dataSamples *dsp, int maxcycles )
 
 	while ( !maxcycles || (ncyci < maxcycles) ) try {
 		if ( dsp ) {
-			newvals = dsp->getSamples( 100 );
+			newvals = dsp->getSamples( 77 );
 			//		cout << "got back " << newvals << endl;
 
 			doCycles( dsp );
@@ -88,8 +88,8 @@ sussChanges::processData( dataSamples *dsp, int maxcycles )
 			timestampout( cout );
 			timestampout( *eventsOutp );
 			lastTimeStampCycle = ncyci -1;
-			writeCycleBurst( dsp, lastTimeStampCycle - 1 );
-			writeCycleBurst( dsp, lastTimeStampCycle );
+			//writeCycleBurst( dsp, lastTimeStampCycle - 1 );
+			//writeCycleBurst( dsp, lastTimeStampCycle );
 		}
 
 		doChanges( dsp );
@@ -226,7 +226,7 @@ sussChanges::doCycle( dataSamples *dsp,
 	crossi = findCrossing( dsp, dsp->amins, dsp->amaxs,
 		lastcycri + dsp->phaseOff );
 	int delta = (signed)crossi - (signed)lastcycri;
-	// a positve delta is lagging in time (further ahead in the sample array)
+	// a positive delta is lagging in time (further ahead in the sample array)
 	cycRi.s( lastcycri, ncyci );
 	phaseOffs.s( delta, ncyci );
 	cycleVals.s( cval, ncyci++ );
@@ -435,7 +435,7 @@ sussChanges::doChanges( dataSamples *dsp )
 					startVali = trycy;
 				}
 
-				for ( trycy = endCyci - 2; trycy <= startVali + 2; trycy++ ) {
+				for ( trycy = endCyci - 1; trycy <= startVali + 1; trycy++ ) {
 					writeCycleBurst( dsp, trycy );
 				}
 

@@ -74,10 +74,10 @@ picoScope::startSampling()
 	spsec = (1000000000/nsecsper);
 	SamplesPerCycle = spsec/60;
 	cout << SamplesPerCycle << " spc, " << nsecsper/2 << " nanosecs per sample" << endl;
-	int obc = 300000;  // spsec*3 > 10240 ? spsec*3 : 10240;
+	int obc = 400000;  // spsec*3 > 10240 ? spsec*3 : 10240;
 	int sts = ps3000_run_streaming_ns( scopeh,
 		nsecsper/2, PS3000_NS,  // div 2 with aggr at 2
-		64000,  // 2048, // what is the best value for this?
+		80000,  // 2048, 64000 // what is the best value for this?
 		0,  // do not stop
 		2,  // aggregation, 2 uses both min and max buffs
 		obc );  // overview buffers count
@@ -97,7 +97,7 @@ void __stdcall StreamingDataCB (
 	if ( !nValues ) {
 		return;
 	}
-	if ( nValues > 100000 ) {
+	if ( nValues > 200000 ) {
 		cout << "got back " << nValues << " nValues" << endl;
 	}
 
