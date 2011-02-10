@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+#include "stdafx.h"
 #include "fileSource.hpp"
 
 fileSource::~fileSource(void)
@@ -33,7 +33,7 @@ fileSource::getSamples( int milliSleep )
 		throw sExc( "no more file data" );
 	}
 	short raw[4];
-	unsigned __int64 max, ri = rawSeq;
+	uint64_t max, ri = rawSeq;
 	max = (SamplesPerCycle*60*milliSleep)/1000 + ri;
 	for ( ; ri < max; ri++ ) {
 		infile.read( (char*)raw, 8 );

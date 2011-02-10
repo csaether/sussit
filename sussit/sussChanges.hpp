@@ -2,32 +2,32 @@
 
 class sussChanges
 {
-	unsigned __int64 lastcycri;  // doCycles - raw sample index
-	unsigned __int64 ncyci;      // doCycle - next full cycle
-	unsigned __int64 prevcyci;   // doCycles - start of unprocessed run
-	unsigned __int64 chunki;     // doChunk - last processed chunk index
-	unsigned __int64 prevchunki; // doChunks
-	unsigned __int64 startVali;  // cycle index at start of run
-	unsigned __int64 nextVali;   // next cycle index for doChanges
-	unsigned __int64 endCyci;    // doChanges when stable -> false
+	uint64_t lastcycri;  // doCycles - raw sample index
+	uint64_t ncyci;      // doCycle - next full cycle
+	uint64_t prevcyci;   // doCycles - start of unprocessed run
+	uint64_t chunki;     // doChunk - last processed chunk index
+	uint64_t prevchunki; // doChunks
+	uint64_t startVali;  // cycle index at start of run
+	uint64_t nextVali;   // next cycle index for doChanges
+	uint64_t endCyci;    // doChanges when stable -> false
 	cBuff<int> phaseOffs;
 	cBuff<int> cycleVals;
-	cBuff<unsigned __int64> cycRi;
+	cBuff<uint64_t> cycRi;
 	cBuff<int> cyChunks;
 	cBuff<int> lagChunks;
-	int wattFudgeDivor;
-	int chunkSize;
-	int chunkRun;
+	unsigned wattFudgeDivor;
+    unsigned chunkSize;
+	unsigned chunkRun;
 	int chgDiff;
-	int preChgout;
-	int postChgout;
+	unsigned preChgout;
+	unsigned postChgout;
 	int startRunVal;  // value at start of run
 	int runVal;  // latest stable run value
 	int prevRunVal; // previous stable run value
 	int drift;
 	int lastDurCycles;
 	int changeArea;
-	unsigned __int64 lastTimeStampCycle;
+	uint64_t lastTimeStampCycle;
 	unsigned cyclesPerTimeStamp;
 	bool stable;
 	bool livedata;
@@ -41,20 +41,20 @@ class sussChanges
 	ostream *cycleOutp;
 	ofstream burstOut;
 	ostream *burstOutp;
-	unsigned __int64 nextrawouti;  // writeRawOut
+	uint64_t nextrawouti;  // writeRawOut
 	ifstream cyclesIn;
 
 	// methods
 	void
 		doCycles( dataSamples *dsp );
 	void
-		doCycle( dataSamples *dsp, const unsigned __int64 nextcycri );
+		doCycle( dataSamples *dsp, const uint64_t nextcycri );
 	void
 		firstTime( dataSamples *dsp );
 	void
 		doChunks();
 	void
-		doChunk( unsigned __int64 cyi );
+		doChunk( uint64_t cyi );
 	void
 		doChanges( dataSamples *dsp );
 	void
@@ -62,12 +62,12 @@ class sussChanges
 	void
 		writeRawOut( dataSamples *dsp );
 	void
-		writeCycleBurst( dataSamples *dsp, unsigned __int64 cyci );
-	unsigned __int64
+		writeCycleBurst( dataSamples *dsp, uint64_t cyci );
+	uint64_t
 		findCrossing( dataSamples *dsp, 
 		              cBuff<short> &mins, 
 		              cBuff<short> &maxs,
-		              unsigned __int64 from,
+		              uint64_t from,
 		              int testrange = 0 );
 	void
 		endrunout( ostream &out );
@@ -98,7 +98,7 @@ public:
 	void
 		setBurstOut( const char *fnamebase );
 	void
-		processData( dataSamples *dsp, int maxcycles = 0 );
+		processData( dataSamples *dsp,uint64_t maxcycles = 0 );
 	void
 		openCyclesIn( const char *fname );
 };

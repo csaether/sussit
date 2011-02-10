@@ -1,5 +1,7 @@
-#include "StdAfx.h"
+#include "stdafx.h"
 #include "sussChanges.hpp"
+
+unsigned SamplesPerCycle = 1000;
 
 sussChanges::sussChanges(void) : lastcycri(0),
 		ncyci(0),
@@ -8,9 +10,9 @@ sussChanges::sussChanges(void) : lastcycri(0),
 		prevchunki(0),
 		endCyci(0),
 		wattFudgeDivor( 21743 ),  // 42343/2, 43230, 8640 (diff probe)
-		chunkSize(12),
+		chunkSize(7),  // was 12 forever..
 		chunkRun(1),
-		chgDiff(75),
+		chgDiff(25),
 		preChgout(12),
 		postChgout(12),  // will only have 1 to 2 chunks ahead
 		lastTimeStampCycle(0),
@@ -35,7 +37,7 @@ sussChanges::~sussChanges(void)
 }
 
 void
-sussChanges::processData( dataSamples *dsp, int maxcycles )
+sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 {
 	ostream &sout = *consOutp;
 	// keep track of raw offsets in object state
@@ -68,6 +70,8 @@ sussChanges::processData( dataSamples *dsp, int maxcycles )
 	}
 
 	firstTime( dsp );
+	timestampout( cout );  // initial timestamp
+	timestampout( *eventsOutp );
 
 	while ( !maxcycles || (ncyci < maxcycles) ) try {
 		if ( dsp ) {
@@ -138,15 +142,15 @@ sussChanges::doCycles( dataSamples *dsp )
 	// start at A[0] to A[gotnValues], except first time start at phaseOff
 	// match A[n] with B[n-phaseOff] to account for shift
 
-	unsigned __int64 nextcycri;
+	uint64_t nextcycri;
 	prevcyci = ncyci;  // so we know how many are new
 
 	// lastcycri is always on a cycle boundary
 
 //	int tog = 0;
-	unsigned __int64 crossi1, endri;
-//	unsigned __int64 crossi2;
-	__int64 delta = 0;
+	uint64_t crossi1, endri;
+//	uint64_t crossi2;
+	int64_t delta = 0;
 	endri = dsp->rawSeq - SamplesPerCycle;  // leave an extra cycle
 	nextcycri = lastcycri + SamplesPerCycle;
 	for ( ; nextcycri < endri; 
@@ -174,7 +178,7 @@ sussChanges::doCycles( dataSamples *dsp )
 	}
 	// write out cycle and phase data if requested
 	if ( cycleOutp ) {
-		unsigned __int64 i;
+		uint64_t i;
 		int cyphase[2];
 		for ( i = prevcyci; i < ncyci; i++ ) {
 			cyphase[0] = cycleVals[i]*wattFudgeDivor;  // for possible re-fudging
@@ -186,13 +190,13 @@ sussChanges::doCycles( dataSamples *dsp )
 
 void
 sussChanges::doCycle( dataSamples *dsp,
-					 const unsigned __int64 nextcycri )
+					 const uint64_t nextcycri )
 {
 	// lastcyri and nextcyri raw indexes are always for the voltage signal
 	// the current (amps) signal will be phaseOff samples ahead
-	__int64 ampvals, voltvals;
-	__int64 cycsum = 0;
-	unsigned __int64 ric, riv, crossi;
+	int64_t ampvals, voltvals;
+	int64_t cycsum = 0;
+	uint64_t ric, riv, crossi;
 	short val;
 	riv = lastcycri;  // raw index for voltage samples
 	ric = riv + dsp->phaseOff;
@@ -232,16 +236,16 @@ sussChanges::doCycle( dataSamples *dsp,
 	cycleVals.s( cval, ncyci++ );
 }
 
-unsigned __int64
+uint64_t
 sussChanges::findCrossing( dataSamples *dsp, 
 						  cBuff<short> &mins,
 						  cBuff<short> &maxs,
-						  unsigned __int64 fromi,
+						  uint64_t fromi,
 						  int testrange )
 {
 	// the search is centered around fromi, looking back samplespercycle,
 	// plus or minus half the testrange
-	unsigned __int64 toi, ri, crossi;
+	uint64_t toi, ri, crossi;
 	int here, back1;
 	unsigned spc, val, low = 0xffffffff;
 	spc = SamplesPerCycle;
@@ -315,19 +319,19 @@ sussChanges::firstTime( dataSamples *dsp )
 void
 sussChanges::doChunks()
 {
-	unsigned __int64 cyi;
+	uint64_t cyi;
 	for ( cyi = prevchunki*chunkSize; (cyi + chunkSize) <= ncyci; cyi += chunkSize ) {
 		doChunk( cyi );
 	}
-	prevchunki = chunki;
+	prevchunki = chunki;  // really the next one to be done
 }
 
 void
-sussChanges::doChunk( unsigned __int64 cyi )
+sussChanges::doChunk( uint64_t cyi )
 {
-	unsigned __int64 i;
-	__int64 chunksum = 0;
-	__int64 lagsum = 0;
+	uint64_t i;
+	int64_t chunksum = 0;
+	int64_t lagsum = 0;
 	int cval,lagval;
 	for ( i = cyi; i < cyi + chunkSize; i++ ) {
 		cval = cycleVals[i];
@@ -346,7 +350,7 @@ sussChanges::doChanges( dataSamples *dsp )
 // runVal is updated with the current value regardless, letting it drift slowly
 {
 	int chval, cval, diff;
-	unsigned __int64 trycy, chi = nextVali/chunkSize;
+	uint64_t trycy, chi = nextVali/chunkSize;
 	for( ; chi < chunki; chi++ ) {
 		chval = cyChunks[chi];
 
@@ -386,7 +390,7 @@ sussChanges::doChanges( dataSamples *dsp )
 				drift = runVal - startRunVal;
 				lastDurCycles = (int)(endCyci - startVali);
 
-				prevRunVal = runVal;
+				prevRunVal = runVal;  // gone to not stable, set to last stable chunk val
 			}
 		} else {
 			// diff is less than threshold, start new run
@@ -394,7 +398,7 @@ sussChanges::doChanges( dataSamples *dsp )
 
 				diff = chval - prevRunVal;
 
-				if ( abs(diff) < chgDiff ) {
+				if ( abs(diff) < chgDiff*3 ) {  // BIG CHANGE - only report bigger changes!!!
 					// just a jumpy chunk, so even though endCyci has
 					// been changed, no matter.  leave startVali, startRunVal alone
 					// and do not write change event records
@@ -405,7 +409,7 @@ sussChanges::doChanges( dataSamples *dsp )
 
 				if ( (chi*chunkSize - endCyci) < chunkSize ) {
 					// leave unstable, might just be a blip
-					continue;
+					continue;  // does not update runVal
 				}
 
 				stable = true;
@@ -439,6 +443,8 @@ sussChanges::doChanges( dataSamples *dsp )
 					writeCycleBurst( dsp, trycy );
 				}
 
+				// startRunVal is only being used for this change area calculation and drift output
+				// both of which are not necessary to figure out here.  pretty sure.
 				startRunVal = chval;
 				calcChangeArea();
 				if ( consOutp ) {
@@ -450,7 +456,7 @@ sussChanges::doChanges( dataSamples *dsp )
 			}
 		}
 		runVal = chval;
-}
+	}
 	nextVali = chi*chunkSize;
 }
 
@@ -517,8 +523,8 @@ sussChanges::startrunout( ostream &out )
 void
 sussChanges::timestampout( ostream &out )
 {
-	out << "T,  " << ncyci - 1 << ",  " << cyChunks[chunki];  // chunks not so jumpy
-	out << ",  " << lagChunks[chunki];
+	out << "T,  " << ncyci - 1 << ",  " << cyChunks[chunki-1];  // chunks not so jumpy
+	out << ",  " << lagChunks[chunki-1];
 	if ( livedata ) {
 		out << ",  " << thetime();
 	}
@@ -540,7 +546,7 @@ sussChanges::writeChgOut()
 	chout << "S, " << startVali << ", " << startRunVal << ", " << pval << endl;
 
 	int val, phaseoff;
-	unsigned __int64 cyci, ecyci;
+	uint64_t cyci, ecyci;
 	cyci = endCyci;
 	if ( cyci > preChgout ) {
 		cyci -= preChgout;
@@ -557,7 +563,7 @@ sussChanges::writeChgOut()
 void
 sussChanges::calcChangeArea()
 {
-	unsigned __int64 cyci;
+	uint64_t cyci;
 	changeArea = 0;
 	for ( cyci = endCyci + 1; cyci <= startVali; cyci++ ) {
 		changeArea += (cycleVals[cyci - 1] + cycleVals[cyci] - 2*startRunVal)/2;
@@ -607,7 +613,7 @@ sussChanges::writeRawOut( dataSamples *dsp )
 		return;
 	}
 	short raw[4];
-	unsigned __int64 ri;
+	uint64_t ri;
 	for ( ri = nextrawouti; ri < dsp->rawSeq; ri++ ) {
 		raw[0] = dsp->amaxs[ri];
 		raw[1] = dsp->amins[ri];
@@ -619,7 +625,7 @@ sussChanges::writeRawOut( dataSamples *dsp )
 }
 
 void
-sussChanges::writeCycleBurst( dataSamples *dsp, unsigned __int64 cyci )
+sussChanges::writeCycleBurst( dataSamples *dsp, uint64_t cyci )
 {
 	if ( !burstOutp ) {
 		return;
@@ -629,7 +635,7 @@ sussChanges::writeCycleBurst( dataSamples *dsp, unsigned __int64 cyci )
 	burstOutp->write( (char*)raw, 8 );
 	burstOutp->write( (char*)&cyci, 8 );
 
-	unsigned __int64 ric, riv, endriv;
+	uint64_t ric, riv, endriv;
 	riv = cycRi[cyci];  // raw index for voltage samples
 	ric = riv + dsp->phaseOff;
 	endriv = riv + SamplesPerCycle;

@@ -15,7 +15,11 @@ thetime()
 {
 	time_t t = ::time(0);
 	char cb[28];
+#ifdef WIN32
 	ctime_s( cb, sizeof(cb), &t );
+#else
+	ctime_r( &t, cb );
+#endif
 	string c( cb );
 	string a( c, 0, c.length() - 1 );
 	return a;

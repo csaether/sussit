@@ -8,16 +8,22 @@
 #include "targetver.h"
 
 #include <stdio.h>
+#include <stdint.h>
+#ifdef WIN32
 #include <tchar.h>
+#endif // MSWIN
 #include <iostream>
 #include <string>
+#include <stdlib.h>
 
 using namespace std;
 
+#ifdef WIN32
 #include "windows.h"
 
 #include "ps3000.h"
 #include "PScope.h"
+#endif // WIN32
 
 #include "cBuff.hpp"
 #include "sExc.hpp"

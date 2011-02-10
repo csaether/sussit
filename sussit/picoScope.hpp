@@ -1,5 +1,5 @@
 #pragma once
-
+#ifdef WIN32
 class picoScope : public dataSamples {
 	int scopeh;
 	enPS3000Range rangeA;
@@ -27,3 +27,4 @@ public:
 	bool
 		liveData() { return true; }
 };
+#endif // WIN32

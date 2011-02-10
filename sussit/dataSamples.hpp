@@ -2,12 +2,12 @@
 extern unsigned SamplesPerCycle;
 class dataSamples {
 public:
-	unsigned __int64 rawSeq;
+	uint64_t rawSeq;
 //	unsigned samplesPerCycle;
 	unsigned phaseOff;  // mistaken idea when using bogus voltage signal
 	int deltadjust;
 
-	cBuff<short> amins;
+	cBuff<int16_t> amins;
 	cBuff<short> amaxs;
 	cBuff<short> bmins;
 	cBuff<short> bmaxs;

@@ -8,8 +8,6 @@ cBuff<short> *Bmaxsp = 0;
 
 unsigned __int64 *RawSeqp = 0;
 
-unsigned SamplesPerCycle = 1000;
-
 picoScope::~picoScope(void)
 {
 	ps3000_stop( scopeh );

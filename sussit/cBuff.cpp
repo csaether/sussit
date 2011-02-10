@@ -19,14 +19,14 @@ cBuff<T>::~cBuff()
 
 
 template<class T> void
-cBuff<T>::s( const T val, const unsigned __int64 seqi )
+cBuff<T>::s( const T val, const uint64_t seqi )
 {
 	int i = (int)(seqi & imask);
 	data[i] = val;
 }
 
 template<class T> T
-cBuff<T>::operator[](const unsigned __int64 seqi)
+cBuff<T>::operator[](const uint64_t seqi)
 {
 	int i = (int)(seqi & imask);
 	return data[i];
@@ -36,4 +36,4 @@ cBuff<T>::operator[](const unsigned __int64 seqi)
 
 template class cBuff<short>;
 template class cBuff<int>;
-template class cBuff<unsigned __int64>;
+template class cBuff<uint64_t>;
