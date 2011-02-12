@@ -1,0 +1,13 @@
+*.ncb
+sussit/Debug/*
+*.pch
+*.pdb
+*.obj
+*.exe
+*.dat
+*.csv
+*.xlsx
+*.pdf
+*log
+*~
+sussit/Release/*

@@ -1,12 +1,12 @@
 #include "StdAfx.h"
 #include "picoScope.hpp"
 
-cBuff<short> *Aminsp = 0;
-cBuff<short> *Amaxsp = 0;
-cBuff<short> *Bminsp = 0;
-cBuff<short> *Bmaxsp = 0;
+uint64_t *RawSeqp = 0;
 
-unsigned __int64 *RawSeqp = 0;
+cBuff<int16_t> *Aminsp = 0;
+cBuff<int16_t> *Amaxsp = 0;
+cBuff<int16_t> *Bminsp = 0;
+cBuff<int16_t> *Bmaxsp = 0;
 
 picoScope::~picoScope(void)
 {
@@ -42,6 +42,9 @@ picoScope::setup()
 	if ( !sts ) {
 		throw sExc( "set channel B failed" );
 	}
+
+	// setup base class
+	dataSamples::setup();
 
 	// allocate circular buffers for raw data, say 10 seconds worth
 
@@ -85,11 +88,11 @@ picoScope::startSampling()
 }
 
 void __stdcall StreamingDataCB (
-								   short **overviewBuffers,
-								   short overflow,
+								   int16_t **overviewBuffers,
+								   int16_t overflow,
 								   unsigned long triggeredAt,
-								   short triggered,
-								   short auto_stop,
+								   int16_t triggered,
+								   int16_t auto_stop,
 								   unsigned long nValues)
 {
 	if ( !nValues ) {
@@ -99,15 +102,15 @@ void __stdcall StreamingDataCB (
 		cout << "got back " << nValues << " nValues" << endl;
 	}
 
-	short *amax, *amin, *bmax, *bmin;
+	int16_t *amax, *amin, *bmax, *bmin;
 	amax = overviewBuffers[0];
 	amin = overviewBuffers[1];
 	bmax = overviewBuffers[2];
 	bmin = overviewBuffers[3];
-	short val = 0;
+	int16_t val = 0;
 
 	unsigned vi = 0;
-	unsigned __int64 ri = *RawSeqp;
+	uint64_t ri = *RawSeqp;
 	for ( ; vi < nValues; vi++ ) {
 		val = amin[vi];
 		Aminsp->s( val, ri );
@@ -124,9 +127,11 @@ void __stdcall StreamingDataCB (
 int
 picoScope::getSamples( int milliSleep )
 {
-	__int64 sampi = rawSeq;
-	short over1 = 0;
+	int64_t sampi = rawSeq;
+	int16_t over1 = 0;
+	uint64_t ri;
 	int sts;
+	short val1, val2;
 
 	if ( milliSleep != 0 ) {
 		::Sleep(milliSleep);
@@ -141,6 +146,29 @@ picoScope::getSamples( int milliSleep )
 	sts = ps3000_overview_buffer_status( scopeh, &over1 );
 	if ( !sts ) {
 		throw sExc( "over buff status 1 failure" );
+	}
+
+	for ( ri = sampi; ri < rawSeq; ri++ ) {
+		val1 = amins[ri];
+		if ( val1 == -32768 ) {
+			throw sExc("bad data");
+		}
+		val2 = amaxs[ri];
+		if ( val2 == -32768 ) {
+			throw sExc("bad data");
+		}
+		ampsamples.s( (val1+val2)/2, ri );
+
+		val1 = bmins[ri];
+		if ( val1 == -32768 ) {
+			throw sExc("bad data");
+		}
+		val2 = bmaxs[ri];
+		if ( val2 == -32768 ) {
+			throw sExc("bad data");
+		}
+		voltsamples.s( (val1+val2)/2, ri );
+
 	}
 
 	return (int)(rawSeq - sampi);

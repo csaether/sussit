@@ -1,11 +1,10 @@
 #pragma once
 #include <fstream>
 
-class fileSource : public dataSamples
-{
+class fileSource : public picoSamples {
 	ifstream infile;
 public:
-	fileSource() : dataSamples() {}
+	fileSource() : picoSamples() {}
 	~fileSource(void);
 
 	void

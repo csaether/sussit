@@ -28,6 +28,7 @@ using namespace std;
 #include "cBuff.hpp"
 #include "sExc.hpp"
 #include "dataSamples.hpp"
+#include "picoSamples.hpp"
 #include "picoScope.hpp"
 #include "fileSource.hpp"
 #include "sussChanges.hpp"

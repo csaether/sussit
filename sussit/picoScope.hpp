@@ -1,12 +1,12 @@
 #pragma once
 #ifdef WIN32
-class picoScope : public dataSamples {
+class picoScope : public picoSamples {
 	int scopeh;
 	enPS3000Range rangeA;
 	enPS3000Range rangeB;
 
 public:
-	picoScope() : dataSamples(), scopeh(0),
+	picoScope() : picoSamples(), scopeh(0),
 		rangeA(PS3000_500MV), rangeB(PS3000_20V)
 	{};
 	~picoScope();

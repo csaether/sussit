@@ -1,28 +1,26 @@
 #pragma once
 extern unsigned SamplesPerCycle;
+class picoSamples;
 class dataSamples {
 public:
+	cBuff<int16_t> voltsamples;
+	cBuff<int16_t> ampsamples;
+
 	uint64_t rawSeq;
-//	unsigned samplesPerCycle;
-	unsigned phaseOff;  // mistaken idea when using bogus voltage signal
 	int deltadjust;
 
-	cBuff<int16_t> amins;
-	cBuff<short> amaxs;
-	cBuff<short> bmins;
-	cBuff<short> bmaxs;
 	dataSamples() : rawSeq(0),
-//		samplesPerCycle(4096),  // 271
-		phaseOff(0*SamplesPerCycle/271),  // mistaken idea - zero with correct voltage signal
 		deltadjust(SamplesPerCycle/271 > 0 ? SamplesPerCycle/271 : 1)
 	{}
 
 	virtual void
-		setup() = 0;
+		setup();
 	virtual void
 		startSampling() = 0;
 	virtual int
 		getSamples( int milliSleep ) = 0;
 	virtual bool
 		liveData() { return false; }
+	virtual picoSamples *
+		isPico() { return 0; }
 };

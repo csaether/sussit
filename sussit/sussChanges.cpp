@@ -60,11 +60,11 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 
 		livedata = dsp->liveData();  // true if picosource
 
-		// get at least an initial chunk run's worth of data plus phaseoffet amount
+		// get at least an initial chunk run's worth of data
 		// plus a full cycle so initial crossing can be set
 		do {
 			newvals += dsp->getSamples( 100 );
-		} while ( newvals < (SamplesPerCycle*(chunkSize*chunkRun+3) + dsp->phaseOff) );
+		} while ( newvals < (SamplesPerCycle*(chunkSize*chunkRun+3)) );
 
 		writeRawOut( dsp );
 	}
@@ -157,7 +157,7 @@ sussChanges::doCycles( dataSamples *dsp )
 		   lastcycri = nextcycri,
 		   nextcycri += SamplesPerCycle ) { //+ (1 & tog++)
 
-		crossi1 = findCrossing( dsp, dsp->bmins, dsp->bmaxs,
+		crossi1 = findCrossing( dsp->voltsamples,
 			nextcycri ); //  + 10, 20 ? // + SamplesPerCycle/4 );
 
 		doCycle( dsp, nextcycri );
@@ -194,41 +194,17 @@ sussChanges::doCycle( dataSamples *dsp,
 {
 	// lastcyri and nextcyri raw indexes are always for the voltage signal
 	// the current (amps) signal will be phaseOff samples ahead
-	int64_t ampvals, voltvals;
 	int64_t cycsum = 0;
-	uint64_t ric, riv, crossi;
-	short val;
-	riv = lastcycri;  // raw index for voltage samples
-	ric = riv + dsp->phaseOff;
-	for ( ; riv < nextcycri; ric++, riv++ ) {
-		val = dsp->amins[ric];
-		if ( val == -32768 ) {
-			throw sExc("bad data");
-		}
-		ampvals = val;
-		val = dsp->amaxs[ric];
-		if ( val == -32768 ) {
-			throw sExc("bad data");
-		}
-		ampvals += val;
-		// this is where checking for any per sample noise would go
-		val = dsp->bmins[riv];
-		if ( val == -32768 ) {
-			throw sExc("bad data");
-		}
-		voltvals = val;
-		val = dsp->bmaxs[riv];
-		if ( val == -32768 ) {
-			throw sExc("bad data");
-		}
-		voltvals += val;
+	uint64_t ri, crossi;
 
-		cycsum += ampvals*voltvals;
+	for ( ri = lastcycri; ri < nextcycri; ri++ ) {
+		// this is where checking for any per sample noise would go
+		cycsum += dsp->ampsamples[ri]*dsp->voltsamples[ri];
 	}
-	cycsum /= SamplesPerCycle*2;  // times 2 because actually two vals per
+	cycsum /= SamplesPerCycle/2;  // times 2 because actually two vals per
 	int cval = (int)(cycsum/wattFudgeDivor);  // big fudge
-	crossi = findCrossing( dsp, dsp->amins, dsp->amaxs,
-		lastcycri + dsp->phaseOff );
+	crossi = findCrossing( dsp->ampsamples,
+		lastcycri );
 	int delta = (signed)crossi - (signed)lastcycri;
 	// a positive delta is lagging in time (further ahead in the sample array)
 	cycRi.s( lastcycri, ncyci );
@@ -237,9 +213,7 @@ sussChanges::doCycle( dataSamples *dsp,
 }
 
 uint64_t
-sussChanges::findCrossing( dataSamples *dsp, 
-						  cBuff<short> &mins,
-						  cBuff<short> &maxs,
+sussChanges::findCrossing(cBuff<short> &samples,
 						  uint64_t fromi,
 						  int testrange )
 {
@@ -256,19 +230,13 @@ sussChanges::findCrossing( dataSamples *dsp,
 	ri = fromi + testrange/2;
 	crossi = ri;
 	for ( ; ri > toi; ri-- ) {
-		here = mins[ri];
-		here += maxs[ri];
-		here += mins[ri - 1];
-		here += maxs[ri - 1];
-		here += mins[ri + 1];
-		here += maxs[ri + 1];
+		here = samples[ri];
+		here += samples[ri - 1];
+		here += samples[ri + 1];
 
-		back1 = mins[ri - spc];
-		back1 += maxs[ri - spc];
-		back1 += mins[ri - spc - 1];
-		back1 += maxs[ri - spc - 1];
-		back1 += maxs[ri - spc + 1];
-		back1 += mins[ri - spc + 1];
+		back1 = samples[ri - spc];
+		back1 += samples[ri - spc - 1];
+		back1 += samples[ri - spc + 1];
 
 		val = abs(here) + abs(back1);
 		if ( val < low ) {
@@ -292,7 +260,7 @@ sussChanges::firstTime( dataSamples *dsp )
 		// the B channel is the voltage signal, and we are looking for the zero
 		// crossing initally to set lastcycri.
 
-		lastcycri = findCrossing( dsp, dsp->bmins, dsp->bmaxs,
+		lastcycri = findCrossing( dsp->voltsamples,
 			(3*SamplesPerCycle)/2 );	
 
 		doCycles( dsp );
@@ -612,13 +580,17 @@ sussChanges::writeRawOut( dataSamples *dsp )
 	if ( !rawOutp ) {
 		return;
 	}
+	picoSamples *psp = dsp->isPico();
+	if ( !psp ) {
+		return;
+	}
 	short raw[4];
 	uint64_t ri;
-	for ( ri = nextrawouti; ri < dsp->rawSeq; ri++ ) {
-		raw[0] = dsp->amaxs[ri];
-		raw[1] = dsp->amins[ri];
-		raw[2] = dsp->bmaxs[ri];
-		raw[3] = dsp->bmins[ri];
+	for ( ri = nextrawouti; ri < psp->rawSeq; ri++ ) {
+		raw[0] = psp->amaxs[ri];
+		raw[1] = psp->amins[ri];
+		raw[2] = psp->bmaxs[ri];
+		raw[3] = psp->bmins[ri];
 		rawOutp->write( (char*)raw, 8 );
 	}
 	nextrawouti = ri;
@@ -630,21 +602,24 @@ sussChanges::writeCycleBurst( dataSamples *dsp, uint64_t cyci )
 	if ( !burstOutp ) {
 		return;
 	}
+	picoSamples *psp = dsp->isPico();
+	if ( !psp ) {
+		return;
+	}
 	short raw[4] = { 0x7abc, 0x7abc, 0x7abc, 0x7abc };
 	// write out marker, cycle number
 	burstOutp->write( (char*)raw, 8 );
 	burstOutp->write( (char*)&cyci, 8 );
 
-	uint64_t ric, riv, endriv;
-	riv = cycRi[cyci];  // raw index for voltage samples
-	ric = riv + dsp->phaseOff;
-	endriv = riv + SamplesPerCycle;
+	uint64_t ri, endriv;
+	ri = cycRi[cyci];
+	endriv = ri + SamplesPerCycle;
 
-	for ( ; riv < endriv; riv++, ric++ ) {
-		raw[0] = dsp->amaxs[ric];
-		raw[1] = dsp->amins[ric];
-		raw[2] = dsp->bmaxs[riv];
-		raw[3] = dsp->bmins[riv];
+	for ( ; ri < endriv; ri ) {
+		raw[0] = psp->amaxs[ri];
+		raw[1] = psp->amins[ri];
+		raw[2] = psp->bmaxs[ri];
+		raw[3] = psp->bmins[ri];
 		burstOutp->write( (char*)raw, 8 );
 	}
 }

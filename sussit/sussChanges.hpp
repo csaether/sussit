@@ -64,9 +64,7 @@ class sussChanges
 	void
 		writeCycleBurst( dataSamples *dsp, uint64_t cyci );
 	uint64_t
-		findCrossing( dataSamples *dsp, 
-		              cBuff<short> &mins, 
-		              cBuff<short> &maxs,
+		findCrossing( cBuff<short> &samples,
 		              uint64_t from,
 		              int testrange = 0 );
 	void
