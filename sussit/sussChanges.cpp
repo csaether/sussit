@@ -615,7 +615,7 @@ sussChanges::writeCycleBurst( dataSamples *dsp, uint64_t cyci )
 	ri = cycRi[cyci];
 	endriv = ri + SamplesPerCycle;
 
-	for ( ; ri < endriv; ri ) {
+	for ( ; ri < endriv; ri++ ) {
 		raw[0] = psp->amaxs[ri];
 		raw[1] = psp->amins[ri];
 		raw[2] = psp->bmaxs[ri];
