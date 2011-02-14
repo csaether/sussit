@@ -5,11 +5,12 @@ class dataSamples {
 public:
 	cBuff<int16_t> voltsamples;
 	cBuff<int16_t> ampsamples;
+	unsigned wattFudgeDivor;
 
 	uint64_t rawSeq;
 	int deltadjust;
 
-	dataSamples() : rawSeq(0),
+	dataSamples(unsigned wattfudge) : wattFudgeDivor(wattfudge), rawSeq(0),
 		deltadjust(SamplesPerCycle/271 > 0 ? SamplesPerCycle/271 : 1)
 	{}
 

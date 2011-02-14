@@ -15,7 +15,6 @@ class sussChanges
 	cBuff<uint64_t> cycRi;
 	cBuff<int> cyChunks;
 	cBuff<int> lagChunks;
-	unsigned wattFudgeDivor;
     unsigned chunkSize;
 	unsigned chunkRun;
 	int chgDiff;
@@ -74,7 +73,7 @@ class sussChanges
 	void
 		calcChangeArea();
 	void
-		readCycles( int numcycles );
+		readCycles( int numcycles, int wattfudgedivor );
 	void
 		timestampout( ostream &out );
 public:

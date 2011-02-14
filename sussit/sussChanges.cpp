@@ -9,7 +9,6 @@ sussChanges::sussChanges(void) : lastcycri(0),
 		chunki(0),
 		prevchunki(0),
 		endCyci(0),
-		wattFudgeDivor( 21743 ),  // 42343/2, 43230, 8640 (diff probe)
 		chunkSize(7),  // was 12 forever..
 		chunkRun(1),
 		chgDiff(25),
@@ -50,7 +49,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 	sout << ",SamplesPerCycle: " << SamplesPerCycle << endl;
 	sout << ",chunkSize: " << chunkSize << endl;
 	sout <<	",chgDiff: " << chgDiff << endl;
-	sout << ",wattFudgeDivor: " << wattFudgeDivor << endl;
+	sout << ",wattFudgeDivor: " << dsp->wattFudgeDivor << endl;
 	sout << ",V1 starting at " << thetime() << endl;
 
 	if ( dsp ) {  // have picosource flag now also
@@ -82,7 +81,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 
 			writeRawOut( dsp );
 		} else {
-			readCycles( 60 );
+			readCycles( 60, 21743 );  // FIX: - retrieve from file (and store first)
 		}
 
 		doChunks();
@@ -115,7 +114,7 @@ sussChanges::openCyclesIn( const char *fname )
 }
 
 void
-sussChanges::readCycles( int numcycles )
+sussChanges::readCycles( int numcycles, int wattfudgedivor )
 {
 	if ( cyclesIn.fail() ) {
 		throw sExc( "no more file data" );
@@ -128,7 +127,7 @@ sussChanges::readCycles( int numcycles )
 		if ( cyclesIn.eof() ) {
 			break;
 		}
-		cycleVals.s( cyphase[0]/wattFudgeDivor, ncyci );  // re-fudge
+		cycleVals.s( cyphase[0]/wattfudgedivor, ncyci );  // re-fudge
 		phaseOffs.s( cyphase[1], ncyci );
 	}
 }
@@ -136,20 +135,12 @@ sussChanges::readCycles( int numcycles )
 void
 sussChanges::doCycles( dataSamples *dsp )
 {
-	// A is current which lags by phaseOff cycles in time and is compensated for
-	// by matching a current sample phaseOff samples ahead with a voltage sample
-	// B is voltage
-	// start at A[0] to A[gotnValues], except first time start at phaseOff
-	// match A[n] with B[n-phaseOff] to account for shift
-
 	uint64_t nextcycri;
 	prevcyci = ncyci;  // so we know how many are new
 
 	// lastcycri is always on a cycle boundary
 
-//	int tog = 0;
 	uint64_t crossi1, endri;
-//	uint64_t crossi2;
 	int64_t delta = 0;
 	endri = dsp->rawSeq - SamplesPerCycle;  // leave an extra cycle
 	nextcycri = lastcycri + SamplesPerCycle;
@@ -181,7 +172,7 @@ sussChanges::doCycles( dataSamples *dsp )
 		uint64_t i;
 		int cyphase[2];
 		for ( i = prevcyci; i < ncyci; i++ ) {
-			cyphase[0] = cycleVals[i]*wattFudgeDivor;  // for possible re-fudging
+			cyphase[0] = cycleVals[i]*dsp->wattFudgeDivor;  // for possible re-fudging
 			cyphase[1] = phaseOffs[i];
 			cycleOutp->write( (char*)cyphase, 8 );
 		}
@@ -192,8 +183,6 @@ void
 sussChanges::doCycle( dataSamples *dsp,
 					 const uint64_t nextcycri )
 {
-	// lastcyri and nextcyri raw indexes are always for the voltage signal
-	// the current (amps) signal will be phaseOff samples ahead
 	int64_t cycsum = 0;
 	uint64_t ri, crossi;
 
@@ -202,7 +191,7 @@ sussChanges::doCycle( dataSamples *dsp,
 		cycsum += dsp->ampsamples[ri]*dsp->voltsamples[ri];
 	}
 	cycsum /= SamplesPerCycle/2;  // times 2 because actually two vals per
-	int cval = (int)(cycsum/wattFudgeDivor);  // big fudge
+	int cval = (int)(cycsum/dsp->wattFudgeDivor);  // big fudge
 	crossi = findCrossing( dsp->ampsamples,
 		lastcycri );
 	int delta = (signed)crossi - (signed)lastcycri;
@@ -265,7 +254,7 @@ sussChanges::firstTime( dataSamples *dsp )
 
 		doCycles( dsp );
 	} else {
-		readCycles( 60 );
+		readCycles( 60, 21743 );
 	}
 
 	doChunks();
