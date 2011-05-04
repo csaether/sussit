@@ -1,7 +1,8 @@
 #include "stdafx.h"
 #include "sussChanges.hpp"
 
-unsigned SamplesPerCycle = 1000;
+int SamplesPerCycle = 128;
+int AvgNSamples = 4;
 
 sussChanges::sussChanges(void) : lastcycri(0),
 		ncyci(0),
@@ -10,7 +11,7 @@ sussChanges::sussChanges(void) : lastcycri(0),
 		prevchunki(0),
 		endCyci(0),
 		chunkSize(7),  // was 12 forever..
-		chunkRun(1),
+		chunkRun(2),
 		chgDiff(25),
 		preChgout(12),
 		postChgout(12),  // will only have 1 to 2 chunks ahead
@@ -47,10 +48,11 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 	unsigned newvals = 0;
 
 	sout << ",SamplesPerCycle: " << SamplesPerCycle << endl;
+	sout << ",Oversampling: " << AvgNSamples << endl;
 	sout << ",chunkSize: " << chunkSize << endl;
 	sout <<	",chgDiff: " << chgDiff << endl;
 	sout << ",wattFudgeDivor: " << dsp->wattFudgeDivor << endl;
-	sout << ",V1 starting at " << thetime() << endl;
+	sout << ",V2 starting at " << thetime() << endl;
 
 	if ( dsp ) {  // have picosource flag now also
 		dsp->setup();
@@ -93,6 +95,13 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 			lastTimeStampCycle = ncyci -1;
 			//writeCycleBurst( dsp, lastTimeStampCycle - 1 );
 			//writeCycleBurst( dsp, lastTimeStampCycle );
+
+			ifstream controlfile;
+			controlfile.open( "runsuss.txt", ios::in );
+			if ( !controlfile ) {
+				throw sExc( "runsuss file not found" );
+			}
+			controlfile.close();
 		}
 
 		doChanges( dsp );
@@ -142,7 +151,7 @@ sussChanges::doCycles( dataSamples *dsp )
 
 	uint64_t crossi1, endri;
 	int64_t delta = 0;
-	endri = dsp->rawSeq - SamplesPerCycle;  // leave an extra cycle
+	endri = dsp->avgSampSeq - SamplesPerCycle;  // leave an extra cycle
 	nextcycri = lastcycri + SamplesPerCycle;
 	for ( ; nextcycri < endri; 
 		   lastcycri = nextcycri,
@@ -190,7 +199,7 @@ sussChanges::doCycle( dataSamples *dsp,
 		// this is where checking for any per sample noise would go
 		cycsum += dsp->ampsamples[ri]*dsp->voltsamples[ri];
 	}
-	cycsum /= SamplesPerCycle/2;  // times 2 because actually two vals per
+	cycsum /= SamplesPerCycle;
 	int cval = (int)(cycsum/dsp->wattFudgeDivor);  // big fudge
 	crossi = findCrossing( dsp->ampsamples,
 		lastcycri );
@@ -242,7 +251,7 @@ sussChanges::firstTime( dataSamples *dsp )
 	// don't need two full cycles to get going, but honestly..
 
 	if ( dsp ) {
-		if ( dsp->rawSeq < (2*SamplesPerCycle) ) {
+		if ( dsp->avgSampSeq < (2*SamplesPerCycle) ) {
 			throw sExc("not enough initial samples");
 		}
 
@@ -396,7 +405,9 @@ sussChanges::doChanges( dataSamples *dsp )
 					startVali = trycy;
 				}
 
-				for ( trycy = endCyci - 1; trycy <= startVali + 1; trycy++ ) {
+				// writing a chunk size set of samples before, during,
+				// and after the transition
+				for ( trycy = endCyci - chunkSize; trycy <= startVali + chunkSize; trycy++ ) {
 					writeCycleBurst( dsp, trycy );
 				}
 
@@ -575,7 +586,7 @@ sussChanges::writeRawOut( dataSamples *dsp )
 	}
 	short raw[4];
 	uint64_t ri;
-	for ( ri = nextrawouti; ri < psp->rawSeq; ri++ ) {
+	for ( ri = nextrawouti; ri < psp->rawSampSeq; ri++ ) {
 		raw[0] = psp->amaxs[ri];
 		raw[1] = psp->amins[ri];
 		raw[2] = psp->bmaxs[ri];
@@ -591,10 +602,10 @@ sussChanges::writeCycleBurst( dataSamples *dsp, uint64_t cyci )
 	if ( !burstOutp ) {
 		return;
 	}
-	picoSamples *psp = dsp->isPico();
-	if ( !psp ) {
-		return;
-	}
+	//picoSamples *psp = dsp->isPico();
+	//if ( !psp ) {
+	//	return;
+	//}
 	short raw[4] = { 0x7abc, 0x7abc, 0x7abc, 0x7abc };
 	// write out marker, cycle number
 	burstOutp->write( (char*)raw, 8 );
@@ -605,10 +616,12 @@ sussChanges::writeCycleBurst( dataSamples *dsp, uint64_t cyci )
 	endriv = ri + SamplesPerCycle;
 
 	for ( ; ri < endriv; ri++ ) {
-		raw[0] = psp->amaxs[ri];
-		raw[1] = psp->amins[ri];
-		raw[2] = psp->bmaxs[ri];
-		raw[3] = psp->bmins[ri];
+		// write the averaged value twice for compatibility now that
+		// raw samples might be oversampled.
+		raw[0] = dsp->ampsamples[ri];
+		raw[1] = dsp->ampsamples[ri];
+		raw[2] = dsp->voltsamples[ri];
+		raw[3] = dsp->voltsamples[ri];
 		burstOutp->write( (char*)raw, 8 );
 	}
 }

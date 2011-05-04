@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include "picoScope.hpp"
 
-uint64_t *RawSeqp = 0;
+uint64_t *RawSampSeqp = 0;
 
 cBuff<int16_t> *Aminsp = 0;
 cBuff<int16_t> *Amaxsp = 0;
@@ -48,7 +48,7 @@ picoScope::setup()
 
 	// allocate circular buffers for raw data, say 10 seconds worth
 
-	int n = SamplesPerCycle*60*10;
+	int n = SamplesPerCycle*AvgNSamples*60*10;
 	int pwrof2 = 0;
 	do {
 		pwrof2 += 1;
@@ -63,18 +63,19 @@ picoScope::setup()
 	bmaxs.allocateBuffer(pwrof2);
 	Bmaxsp = &bmaxs;
 
-	RawSeqp = &rawSeq;
+	RawSampSeqp = &rawSampSeq;
 }
 
 void
 picoScope::startSampling()
 {
-	int spsec = SamplesPerCycle*60;
+	int spsec = SamplesPerCycle*60*AvgNSamples;
 	int nsecsper = 1000000000/spsec;
 	nsecsper = (nsecsper/200)*200;  // needs to be multiple of 50 nanosecs
 	spsec = (1000000000/nsecsper);
-	SamplesPerCycle = spsec/60;
-	cout << SamplesPerCycle << " spc, " << nsecsper/2 << " nanosecs per sample" << endl;
+	SamplesPerCycle = spsec/(60*AvgNSamples);
+	cout << SamplesPerCycle << " spc, " << nsecsper/2 << " nanosecs per raw sample, ";
+	cout << AvgNSamples << " times oversampling." << endl;
 	int obc = 400000;  // spsec*3 > 10240 ? spsec*3 : 10240;
 	int sts = ps3000_run_streaming_ns( scopeh,
 		nsecsper/2, PS3000_NS,  // div 2 with aggr at 2
@@ -110,7 +111,7 @@ void __stdcall StreamingDataCB (
 	int16_t val = 0;
 
 	unsigned vi = 0;
-	uint64_t ri = *RawSeqp;
+	uint64_t ri = *RawSampSeqp;
 	for ( ; vi < nValues; vi++ ) {
 		val = amin[vi];
 		Aminsp->s( val, ri );
@@ -121,22 +122,22 @@ void __stdcall StreamingDataCB (
 		val = bmax[vi];
 		Bmaxsp->s( val, ri++ );
 	}
-	*RawSeqp = ri;
+	*RawSampSeqp = ri;
 }
 
 int
 picoScope::getSamples( int milliSleep )
 {
-	int64_t sampi = rawSeq;
 	int16_t over1 = 0;
-	uint64_t ri;
+	int64_t asi, rsi = (rawSampSeq/AvgNSamples)*AvgNSamples;
 	int sts;
 	short val1, val2;
+	int val1sum, val2sum;
 
 	if ( milliSleep != 0 ) {
 		::Sleep(milliSleep);
 	}
-
+	// this call is going to advance the rawSampSeq value
 	sts = ps3000_get_streaming_last_values( scopeh,
 		GetOverviewBuffersMaxMin( StreamingDataCB ) );
 	if ( !sts ) {
@@ -148,28 +149,45 @@ picoScope::getSamples( int milliSleep )
 		throw sExc( "over buff status 1 failure" );
 	}
 
-	for ( ri = sampi; ri < rawSeq; ri++ ) {
-		val1 = amins[ri];
-		if ( val1 == -32768 ) {
-			throw sExc("bad data");
-		}
-		val2 = amaxs[ri];
-		if ( val2 == -32768 ) {
-			throw sExc("bad data");
-		}
-		ampsamples.s( (val1+val2)/2, ri );
+	int64_t endseq = (rawSampSeq/AvgNSamples)*AvgNSamples;
+	for ( asi = avgSampSeq;
+		  rsi < endseq;
+		  asi++ ) {
 
-		val1 = bmins[ri];
-		if ( val1 == -32768 ) {
-			throw sExc("bad data");
-		}
-		val2 = bmaxs[ri];
-		if ( val2 == -32768 ) {
-			throw sExc("bad data");
-		}
-		voltsamples.s( (val1+val2)/2, ri );
+		// inner loop to average raw samples
+		val1sum = 0;
+		val2sum = 0;
+		int64_t iendi = rsi + AvgNSamples;
+		for ( ; rsi < iendi; rsi++ ) {
+			val1 = amins[rsi];
+			if ( val1 == -32768 ) {
+				throw sExc("bad data");
+			}
+			val2 = amaxs[rsi];
+			if ( val2 == -32768 ) {
+				throw sExc("bad data");
+			}
+			val1sum += val1;
+			val1sum += val2;
 
+			val1 = bmins[rsi];
+			if ( val1 == -32768 ) {
+				throw sExc("bad data");
+			}
+			val2 = bmaxs[rsi];
+			if ( val2 == -32768 ) {
+				throw sExc("bad data");
+			}
+			val2sum += val1;
+			val2sum += val2;
+		}
+		val1sum /= 2*AvgNSamples;
+		ampsamples.s( val1sum, asi );
+		val2sum /= 2*AvgNSamples;
+		voltsamples.s( val2sum, asi );
 	}
 
-	return (int)(rawSeq - sampi);
+	int count = (int)(asi - avgSampSeq);
+	avgSampSeq = asi;
+	return count;
 }

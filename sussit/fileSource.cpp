@@ -34,7 +34,7 @@ fileSource::getSamples( int milliSleep )
 		throw sExc( "no more file data" );
 	}
 	short raw[4];
-	uint64_t max, ri = rawSeq;
+	uint64_t max, ri = avgSampSeq;
 	max = (SamplesPerCycle*60*milliSleep)/1000 + ri;
 	for ( ; ri < max; ri++ ) {
 		infile.read( (char*)raw, 8 );
@@ -44,10 +44,10 @@ fileSource::getSamples( int milliSleep )
 		ampsamples.s( (raw[0] + raw[1])/2, ri );
 		voltsamples.s( (raw[2] + raw[3])/2, ri );
 	}
-	int n = (int)(ri - rawSeq);
+	int n = (int)(ri - avgSampSeq);
 	if ( n == 0 ) {
 		throw sExc( "no more file data" );
 	}
-	rawSeq = ri;
+	avgSampSeq = ri;
 	return n;
 }

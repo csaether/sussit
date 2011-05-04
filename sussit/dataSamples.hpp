@@ -1,5 +1,6 @@
 #pragma once
-extern unsigned SamplesPerCycle;
+extern int SamplesPerCycle;
+extern int AvgNSamples;
 class picoSamples;
 class dataSamples {
 public:
@@ -7,10 +8,12 @@ public:
 	cBuff<int16_t> ampsamples;
 	unsigned wattFudgeDivor;
 
-	uint64_t rawSeq;
+	uint64_t rawSampSeq;
+	uint64_t avgSampSeq;
 	int deltadjust;
 
-	dataSamples(unsigned wattfudge) : wattFudgeDivor(wattfudge), rawSeq(0),
+	dataSamples(unsigned wattfudge) : wattFudgeDivor(wattfudge), rawSampSeq(0),
+		avgSampSeq(0),
 		deltadjust(SamplesPerCycle/271 > 0 ? SamplesPerCycle/271 : 1)
 	{}
 
