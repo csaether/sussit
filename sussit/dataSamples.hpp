@@ -14,6 +14,7 @@ public:
 
 	dataSamples(unsigned wattfudge) : wattFudgeDivor(wattfudge), rawSampSeq(0),
 		avgSampSeq(0),
+		// TODO: - where did 271 come from?
 		deltadjust(SamplesPerCycle/271 > 0 ? SamplesPerCycle/271 : 1)
 	{}
 

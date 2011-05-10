@@ -25,11 +25,11 @@ sussChanges::sussChanges(void) : lastcycri(0),
 		burstOutp(0),
 		nextrawouti(0)
 {
-	phaseOffs.allocateBuffer( 10 );  // 2^10 = 1024
-	cycleVals.allocateBuffer( 10 );  // 2^10 = 1024
+	reactivePower.allocateBuffer( 10 );  // 2^10 = 1024
+	realPower.allocateBuffer( 10 );  // 2^10 = 1024
 	cycRi.allocateBuffer( 10 );  // 2^10 = 1024
-	cyChunks.allocateBuffer( 4 );  // 2^4 = 16
-	lagChunks.allocateBuffer( 4 );  // 2^4 = 16
+	realPwrChunks.allocateBuffer( 4 );  // 2^4 = 16
+	reactiveChunks.allocateBuffer( 4 );  // 2^4 = 16
 }
 
 sussChanges::~sussChanges(void)
@@ -129,15 +129,15 @@ sussChanges::readCycles( int numcycles, int wattfudgedivor )
 		throw sExc( "no more file data" );
 	}
 	prevcyci = ncyci;
-	int cyphase[2];
+	int realreac[2];
 	int count;
 	for ( count = 0; count < numcycles; count++, ncyci++ ) {
-		cyclesIn.read( (char*)cyphase, 8 );
+		cyclesIn.read( (char*)realreac, 8 );
 		if ( cyclesIn.eof() ) {
 			break;
 		}
-		cycleVals.s( cyphase[0]/wattfudgedivor, ncyci );  // re-fudge
-		phaseOffs.s( cyphase[1], ncyci );
+		realPower.s( realreac[0]/wattfudgedivor, ncyci );  // re-fudge
+		reactivePower.s( realreac[1], ncyci );
 	}
 }
 
@@ -160,9 +160,13 @@ sussChanges::doCycles( dataSamples *dsp )
 		crossi1 = findCrossing( dsp->voltsamples,
 			nextcycri ); //  + 10, 20 ? // + SamplesPerCycle/4 );
 
-		doCycle( dsp, nextcycri );
-
-		// adjust nextcycri after doing this cycle
+		// adjust nextcycri before doing this cycle
+#ifdef hmmmcode
+	the idea here was to not make tiny adjustments with large
+	sample rates, but now we are using all of the samples, not just
+	the nominal samples per second, so set this each time.  the crossing
+	point for the voltage signal really should not be very jumpy, if it is
+	try to smooth it in the find crossing code first.
 		delta += (signed)crossi1 - (signed)nextcycri;
 		if ( delta > dsp->deltadjust ) {  // 2*
 			nextcycri += dsp->deltadjust;
@@ -175,15 +179,20 @@ sussChanges::doCycles( dataSamples *dsp )
 		} else {
 //			cout << " none" << endl;
 		}
+#else
+		nextcycri = crossi1;
+#endif // hmmmcode
+
+		doCycle( dsp, nextcycri );
 	}
-	// write out cycle and phase data if requested
+	// write out cycle real and reactive power data if requested
 	if ( cycleOutp ) {
 		uint64_t i;
-		int cyphase[2];
+		int realreac[2];
 		for ( i = prevcyci; i < ncyci; i++ ) {
-			cyphase[0] = cycleVals[i]*dsp->wattFudgeDivor;  // for possible re-fudging
-			cyphase[1] = phaseOffs[i];
-			cycleOutp->write( (char*)cyphase, 8 );
+			realreac[0] = realPower[i]*dsp->wattFudgeDivor;  // for possible re-fudging
+			realreac[1] = reactivePower[i]*dsp->wattFudgeDivor;
+			cycleOutp->write( (char*)realreac, 8 );
 		}
 	}
 }
@@ -193,21 +202,34 @@ sussChanges::doCycle( dataSamples *dsp,
 					 const uint64_t nextcycri )
 {
 	int64_t cycsum = 0;
-	uint64_t ri, crossi;
+	uint64_t ari, ri, sampcount = nextcycri - lastcycri;
 
 	for ( ri = lastcycri; ri < nextcycri; ri++ ) {
 		// this is where checking for any per sample noise would go
 		cycsum += dsp->ampsamples[ri]*dsp->voltsamples[ri];
 	}
-	cycsum /= SamplesPerCycle;
+	cycsum /= sampcount;
 	int cval = (int)(cycsum/dsp->wattFudgeDivor);  // big fudge
-	crossi = findCrossing( dsp->ampsamples,
+	realPower.s( cval, ncyci );
+#ifdef oldcode
+	uint64_t crossi = findCrossing( dsp->ampsamples,
 		lastcycri );
 	int delta = (signed)crossi - (signed)lastcycri;
+#endif  // oldcode
 	// a positive delta is lagging in time (further ahead in the sample array)
-	cycRi.s( lastcycri, ncyci );
-	phaseOffs.s( delta, ncyci );
-	cycleVals.s( cval, ncyci++ );
+	// calculate reactive power by using current samples shifted a quarter of
+	// a cycle delayed (ahead in array)
+	cycsum = 0;
+	for ( ri = lastcycri, ari = lastcycri + (sampcount/4);
+			ri < nextcycri; ri++, ari++ ) {
+		// this is where checking for any per sample noise would go
+		cycsum += dsp->ampsamples[ari]*dsp->voltsamples[ri];
+	}
+	cycsum /= sampcount;
+	cval = (int)(cycsum/dsp->wattFudgeDivor);  // big fudge
+	reactivePower.s( cval, ncyci );
+
+	cycRi.s( lastcycri, ncyci++ );
 }
 
 uint64_t
@@ -274,7 +296,7 @@ sussChanges::firstTime( dataSamples *dsp )
 	// declare the initial value a stable run
 	// startVali and start chunki both zero
 	startVali = 0;
-	startRunVal = cyChunks[0];
+	startRunVal = realPwrChunks[0];
 	runVal = startRunVal;
 	prevRunVal = startRunVal;
 // 	lastChunkVal = startRunVal;
@@ -296,17 +318,17 @@ void
 sussChanges::doChunk( uint64_t cyi )
 {
 	uint64_t i;
-	int64_t chunksum = 0;
-	int64_t lagsum = 0;
-	int cval,lagval;
+	int64_t rpwrsum = 0;
+	int64_t reacsum = 0;
+	int rpwrval, reacval;
 	for ( i = cyi; i < cyi + chunkSize; i++ ) {
-		cval = cycleVals[i];
-		chunksum += cval;
-		lagval = phaseOffs[i];
-		lagsum += lagval;
+		rpwrval = realPower[i];
+		rpwrsum += rpwrval;
+		reacval = reactivePower[i];
+		reacsum += reacval;
 	}
-	cyChunks.s( (int)(chunksum/chunkSize), chunki );
-	lagChunks.s( (int)(lagsum/chunkSize), chunki++ );
+	realPwrChunks.s( (int)(rpwrsum/chunkSize), chunki );
+	reactiveChunks.s( (int)(reacsum/chunkSize), chunki++ );
 }
 
 void
@@ -318,12 +340,12 @@ sussChanges::doChanges( dataSamples *dsp )
 	int chval, cval, diff;
 	uint64_t trycy, chi = nextVali/chunkSize;
 	for( ; chi < chunki; chi++ ) {
-		chval = cyChunks[chi];
+		chval = realPwrChunks[chi];
 
 		if ( stable ) {
 			diff = chval - runVal;
 		} else {
-			diff = chval - cyChunks[chi - 1];
+			diff = chval - realPwrChunks[chi - 1];
 		}
 
 		if ( abs(diff) >= chgDiff ) {
@@ -340,10 +362,10 @@ sussChanges::doChanges( dataSamples *dsp )
 				// go forward by cycle to find
 				// specific cycle where change starts
 				for ( trycy = endCyci + 1; trycy < (chi+1)*chunkSize; trycy += 1 ) {
-					cval = cycleVals[trycy];
+					cval = realPower[trycy];
 					diff = cval - runVal;
 					if ( abs(diff) >= chgDiff ) {
-						cval = cycleVals[trycy + 1];
+						cval = realPower[trycy + 1];
 						diff = cval - runVal;
 						if ( abs(diff) >= chgDiff ) {
 							break;
@@ -392,11 +414,11 @@ sussChanges::doChanges( dataSamples *dsp )
 				// back up and identify where it really starts
 
 				for ( trycy = startVali; trycy > endCyci; trycy-- ) {
-					cval = cycleVals[trycy];
+					cval = realPower[trycy];
 					diff = cval - chval;
 					if ( abs(diff) >= chgDiff ) {
 						// see if this is just a jumpy cycle
-						cval = cycleVals[trycy - 1];
+						cval = realPower[trycy - 1];
 						diff = cval - chval;
 						if ( abs(diff) >= chgDiff ) {
 							break;
@@ -407,8 +429,10 @@ sussChanges::doChanges( dataSamples *dsp )
 
 				// writing a chunk size set of samples before, during,
 				// and after the transition
-				for ( trycy = endCyci - chunkSize; trycy <= startVali + chunkSize; trycy++ ) {
-					writeCycleBurst( dsp, trycy );
+				for ( trycy = endCyci - chunkSize;
+					trycy < startVali + chunkSize;
+					trycy++ ) {
+						writeCycleBurst( dsp, trycy );
 				}
 
 				// startRunVal is only being used for this change area calculation and drift output
@@ -471,10 +495,10 @@ sussChanges::endrunout( ostream &out )
 void
 sussChanges::startrunout( ostream &out )
 {
-	// time, change, value, phasechg, changeArea
+	// time, change, real power value, reactive power change, changeArea
 	out << startRunVal - prevRunVal;
 	out << ",  " << startRunVal;
-	out << ",  " << phaseOffs[startVali+2] - phaseOffs[endCyci-2];
+	out << ",  " << reactivePower[startVali+2] - reactivePower[endCyci-2];
 	// changeArea - rampfactor?
 	if ( livedata ) {
 		out << ",  " << thetime() << endl;
@@ -491,8 +515,8 @@ sussChanges::startrunout( ostream &out )
 void
 sussChanges::timestampout( ostream &out )
 {
-	out << "T,  " << ncyci - 1 << ",  " << cyChunks[chunki-1];  // chunks not so jumpy
-	out << ",  " << lagChunks[chunki-1];
+	out << "T,  " << ncyci - 1 << ",  " << realPwrChunks[chunki-1];  // chunks not so jumpy
+	out << ",  " << reactiveChunks[chunki-1];
 	if ( livedata ) {
 		out << ",  " << thetime();
 	}
@@ -507,14 +531,30 @@ sussChanges::writeChgOut()
 	}
 	ostream &chout = *eventsOutp;
 
-	int pval;
-	pval = (phaseOffs[endCyci-3] + phaseOffs[endCyci-2] + phaseOffs[endCyci-1])/3;
-	chout << "E, " << endCyci << ", " << prevRunVal << ", " << pval << endl;
-	pval = (phaseOffs[startVali+3] + phaseOffs[startVali+2] + phaseOffs[startVali+1])/3;
-	chout << "S, " << startVali << ", " << startRunVal << ", " << pval << endl;
-
-	int val, phaseoff;
+	int pwrval, reacval;
 	uint64_t cyci, ecyci;
+	pwrval = 0; reacval = 0;
+	for ( cyci = endCyci - 4; cyci < endCyci; cyci++ ) {
+		pwrval += realPower[cyci];
+		reacval += reactivePower[cyci];
+	}
+	pwrval /= 4;
+	reacval /= 4;
+	chout << "E, " << endCyci << ", " << pwrval << ", " << reacval << endl;
+	pwrval = 0; reacval = 0;
+	for ( cyci = startVali + 1; cyci < startVali + 5; cyci++ ) {
+		pwrval += realPower[cyci];
+		reacval += reactivePower[cyci];
+	}
+	pwrval /= 4;
+	reacval /= 4;
+	chout << "S, " << startVali << ", " << pwrval << ", " << reacval << endl;
+#ifdef oldcode
+	pval = (reactivePower[endCyci-3] + reactivePower[endCyci-2] + reactivePower[endCyci-1])/3;
+	chout << "E, " << endCyci << ", " << prevRunVal << ", " << pval << endl;
+	pval = (reactivePower[startVali+3] + reactivePower[startVali+2] + reactivePower[startVali+1])/3;
+	chout << "S, " << startVali << ", " << startRunVal << ", " << pval << endl;
+#endif // oldcode
 	cyci = endCyci;
 	if ( cyci > preChgout ) {
 		cyci -= preChgout;
@@ -522,9 +562,9 @@ sussChanges::writeChgOut()
 
 	ecyci = startVali + postChgout;
 	for ( ; cyci <= ecyci; cyci++ ) {
-		val = cycleVals[cyci];
-		phaseoff = phaseOffs[cyci];
-		chout << "C, " << cyci << ", " << val << ", " << phaseoff << endl;
+		pwrval = realPower[cyci];
+		reacval = reactivePower[cyci];
+		chout << "C, " << cyci << ", " << pwrval << ", " << reacval << endl;
 	}
 }
 
@@ -534,7 +574,7 @@ sussChanges::calcChangeArea()
 	uint64_t cyci;
 	changeArea = 0;
 	for ( cyci = endCyci + 1; cyci <= startVali; cyci++ ) {
-		changeArea += (cycleVals[cyci - 1] + cycleVals[cyci] - 2*startRunVal)/2;
+		changeArea += (realPower[cyci - 1] + realPower[cyci] - 2*startRunVal)/2;
 	}
 }
 
@@ -598,6 +638,32 @@ sussChanges::writeRawOut( dataSamples *dsp )
 
 void
 sussChanges::writeCycleBurst( dataSamples *dsp, uint64_t cyci )
+	                          
+{
+	if ( !burstOutp ) {
+		return;
+	}
+	short raw[2] = { 0x1abc, 0x1abc };
+	// write out marker, cycle number, count
+	burstOutp->write( (char*)raw, 4 );
+	burstOutp->write( (char*)&cyci, 8 );
+
+	uint64_t ri, endriv;
+	ri = cycRi[cyci];
+	endriv = cycRi[cyci + 1];  // always have next cycle done
+
+	for ( ; ri < endriv; ri++ ) {
+		// write the averaged value twice for compatibility now that
+		// raw samples might be oversampled.
+		raw[0] = dsp->ampsamples[ri];
+		raw[1] = dsp->voltsamples[ri];
+		burstOutp->write( (char*)raw, 4 );
+	}
+}
+
+#ifdef oldversion
+void
+sussChanges::writeCycleBurst( dataSamples *dsp, uint64_t cyci )
 {
 	if ( !burstOutp ) {
 		return;
@@ -625,3 +691,4 @@ sussChanges::writeCycleBurst( dataSamples *dsp, uint64_t cyci )
 		burstOutp->write( (char*)raw, 8 );
 	}
 }
+#endif // oldversion

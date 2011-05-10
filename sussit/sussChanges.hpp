@@ -10,11 +10,11 @@ class sussChanges
 	uint64_t startVali;  // cycle index at start of run
 	uint64_t nextVali;   // next cycle index for doChanges
 	uint64_t endCyci;    // doChanges when stable -> false
-	cBuff<int> phaseOffs;
-	cBuff<int> cycleVals;
+	cBuff<int> realPower;
+	cBuff<int> reactivePower;
 	cBuff<uint64_t> cycRi;
-	cBuff<int> cyChunks;
-	cBuff<int> lagChunks;
+	cBuff<int> realPwrChunks;
+	cBuff<int> reactiveChunks;
     unsigned chunkSize;
 	unsigned chunkRun;
 	int chgDiff;
@@ -61,7 +61,8 @@ class sussChanges
 	void
 		writeRawOut( dataSamples *dsp );
 	void
-		writeCycleBurst( dataSamples *dsp, uint64_t cyci );
+		writeCycleBurst( dataSamples *dsp, 
+						 uint64_t cyci );
 	uint64_t
 		findCrossing( cBuff<short> &samples,
 		              uint64_t from,
