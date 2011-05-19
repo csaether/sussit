@@ -417,6 +417,7 @@ sussChanges::doChanges( dataSamples *dsp )
 					continue;
 				}
 
+				// this makes sure there are at least chunkRun chunks between transitions
 				if ( ++stableCnt < chunkRun ) {  // was (chi*chunkSize - endCyci) < chunkSize
 					// leave unstable, might just be a blip
 					continue;  // does not update runVal
@@ -434,17 +435,6 @@ sussChanges::doChanges( dataSamples *dsp )
 					throw sExc( "what the - startVali less than endCyci??" );
 				}
 				// back up and identify where it really starts
-/*
-	I think what we really want to do here is once we think we've backed into
-	the specific cycle, calculate the next cluster from that point and make sure
-	it is still stable.
-
-	How can we offset the cluster calculation to line up with the start of a new run cycle?
-	Already figured out possibly many clusters beyond this.  Not sure what that would buy.
-	And make sure the next run does not start for at least a cluster's worth of cycles?
-	Use the cluster run count here, most likely.
-	Still don't know why we got a bogus reactive power value.
-*/
 
 				for ( trycy = startVali; trycy > endCyci; trycy-- ) {
 					cval = realPower[trycy];
@@ -468,11 +458,10 @@ sussChanges::doChanges( dataSamples *dsp )
 						writeCycleBurst( dsp, trycy );
 				}
 
-				// startRunWatts is only being used for this change area calculation and drift output
-				// both of which are not necessary to figure out here.  pretty sure.
-				startRunWatts = chnkwatts;
-				startRunVARs = chnkvars;
-				calcChangeArea();
+				// set the new starting run watts and vars.  Use the first stable chunk values after the transition.
+				startRunWatts = realPwrChunks[ chnki - chunkRun ];
+				startRunVARs = reactiveChunks[ chnki - chunkRun ];
+//				calcChangeArea();
 				if ( consOutp ) {
 					startrunout( *consOutp );
 				}
@@ -607,6 +596,7 @@ sussChanges::writeChgOut()
 	}
 }
 
+#ifdef deadcode
 void
 sussChanges::calcChangeArea()
 {
@@ -616,6 +606,7 @@ sussChanges::calcChangeArea()
 		changeArea += (realPower[cyci - 1] + realPower[cyci] - 2*startRunWatts)/2;
 	}
 }
+#endif // deadcode
 
 void
 sussChanges::setRawOut( const char *fnamebase )

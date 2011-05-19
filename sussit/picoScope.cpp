@@ -63,10 +63,10 @@ picoScope::startSampling()
 	SamplesPerCycle = spsec/(60*AvgNSamples);
 	cout << SamplesPerCycle << " spc, " << nsecsper/2 << " nanosecs per raw sample, ";
 	cout << AvgNSamples << " times oversampling." << endl;
-	int obc = 40000;  // spsec*3 > 10240 ? spsec*3 : 10240;
+	int obc = 96000;  // spsec*3 > 10240 ? spsec*3 : 10240;
 	int sts = ps3000_run_streaming_ns( scopeh,
 		nsecsper/2, PS3000_NS,  // div 2 with aggr at 2
-		8000,  // 2048, 64000 // what is the best value for this?
+		12000,  // 2048, 64000 // what is the best value for this?
 		0,  // do not stop
 		2,  // aggregation, 2 uses both min and max buffs
 		obc );  // overview buffers count

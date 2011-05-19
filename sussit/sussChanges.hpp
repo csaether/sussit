@@ -28,7 +28,7 @@ class sussChanges
 	int prevRunVARs;  // previous reactive power
 	int drift;
 	int lastDurCycles;
-	int changeArea;
+//	int changeArea;
 	uint64_t lastTimeStampCycle;
 	unsigned cyclesPerTimeStamp;
 	unsigned stableCnt;
@@ -74,8 +74,8 @@ class sussChanges
 		endrunout( ostream &out );
 	void
 		startrunout( ostream &out );
-	void
-		calcChangeArea();
+//	void
+//		calcChangeArea();
 	void
 		readCycles( int numcycles, int wattfudgedivor );
 	void
