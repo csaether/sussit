@@ -20,15 +20,18 @@ class sussChanges
 	int chgDiff;
 	unsigned preChgout;
 	unsigned postChgout;
-	int startRunVal;  // value at start of run
-	int runVal;  // latest stable run value
-	int prevRunVal; // previous stable run value
+	int startRunWatts;  // real power at start of run
+	int startRunVARs;  // reactive power at start
+	int runWatts;  // latest stable run real power
+	int runVARs;  // latest stable reactive power
+	int prevRunWatts; // previous stable run real power
+	int prevRunVARs;  // previous reactive power
 	int drift;
 	int lastDurCycles;
 	int changeArea;
 	uint64_t lastTimeStampCycle;
 	unsigned cyclesPerTimeStamp;
-	bool stable;
+	unsigned stableCnt;
 	bool livedata;
 	ofstream consOut;
 	ostream *consOutp;

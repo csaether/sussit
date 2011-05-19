@@ -40,7 +40,7 @@ pvalchk( short val ) {
 int
 picoSamples::avgSamples( int64_t rsi, int64_t endrawseq )
 {
-	int val1sum, val2sum;
+	int val1sum, val2sum, val1, val2;
 	int64_t asi;
 
 	for ( asi = avgSampSeq; rsi < endrawseq; asi++ ) {
@@ -56,10 +56,10 @@ picoSamples::avgSamples( int64_t rsi, int64_t endrawseq )
 			val2sum += pvalchk( bmins[rsi] );
 			val2sum += pvalchk( bmaxs[rsi] );
 		}
-		val1sum /= 2*AvgNSamples;
-		ampsamples.s( val1sum, asi );
-		val2sum /= 2*AvgNSamples;
-		voltsamples.s( val2sum, asi );
+		val1 = val1sum/(2*AvgNSamples);
+		ampsamples.s( val1, asi );
+		val2 = val2sum/(2*AvgNSamples);
+		voltsamples.s( val2, asi );
 	}
 	int count = (int)(asi - avgSampSeq);
 	avgSampSeq = asi;

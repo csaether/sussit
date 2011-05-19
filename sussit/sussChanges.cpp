@@ -117,7 +117,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 		doChanges( dsp );
 	} catch ( exception &x ) {
 		sout << ",caught exception " << x.what() << endl;
-		sout << startRunVal << ",\t" << runVal << ",\t";
+		sout << startRunWatts << ",\t" << runWatts << ",\t";
 		sout << ",end second,\t" << ncyci/60.0 << endl;
 		throw;
 	}
@@ -213,15 +213,17 @@ void
 sussChanges::doCycle( dataSamples *dsp,
 					 const uint64_t nextcycri )
 {
-	int64_t cycsum = 0;
-	uint64_t ari, ri, sampcount = nextcycri - lastcycari;
+	int64_t cycval, cycsum = 0;
+	uint64_t ari, ri;
+	int cval, ival, sampcount = (int)(nextcycri - lastcycari);
 
 	for ( ri = lastcycari; ri < nextcycri; ri++ ) {
 		// this is where checking for any per sample noise would go
-		cycsum += dsp->ampsamples[ri]*dsp->voltsamples[ri];
+		ival = dsp->ampsamples[ri]*dsp->voltsamples[ri];
+		cycsum += ival;
 	}
-	cycsum /= sampcount;
-	int cval = (int)(cycsum/dsp->wattFudgeDivor);  // big fudge
+	cycval = cycsum/(sampcount*dsp->wattFudgeDivor);
+	cval = (int)cycval;
 	realPower.s( cval, ncyci );
 #ifdef oldcode
 	uint64_t crossi = findCrossing( dsp->ampsamples,
@@ -237,8 +239,8 @@ sussChanges::doCycle( dataSamples *dsp,
 		// this is where checking for any per sample noise would go
 		cycsum += dsp->ampsamples[ari]*dsp->voltsamples[ri];
 	}
-	cycsum /= sampcount;
-	cval = (int)(cycsum/dsp->wattFudgeDivor);  // big fudge
+	cycval = cycsum/(sampcount*dsp->wattFudgeDivor);
+	cval = (int)cycval;
 	reactivePower.s( cval, ncyci );
 
 	cycRi.s( lastcycari, ncyci++ );
@@ -308,11 +310,12 @@ sussChanges::firstTime( dataSamples *dsp )
 	// declare the initial value a stable run
 	// startVali and start chunki both zero
 	startVali = 0;
-	startRunVal = realPwrChunks[0];
-	runVal = startRunVal;
-	prevRunVal = startRunVal;
-// 	lastChunkVal = startRunVal;
-	stable = true;
+	startRunWatts = realPwrChunks[0];
+	startRunVARs = reactiveChunks[0];
+	runWatts = startRunWatts;
+	prevRunWatts = startRunWatts;
+	prevRunVARs = startRunVARs;
+	stableCnt = chunkRun;
 	nextVali = chunkSize;
 }
 
@@ -348,28 +351,29 @@ sussChanges::doChunk( uint64_t cyi )
 void
 sussChanges::doChanges( dataSamples *dsp )
 // runVal is either a) the current run value, or b) the potential new value
-// while we are looking for another run when stable is false
+// while we are looking for another run when stableCnt is less than chunkRun
 // runVal is updated with the current value regardless, letting it drift slowly
 {
-	int chval, cval, diff;
-	uint64_t trycy, chi = nextVali/chunkSize;
-	for( ; chi < chunki; chi++ ) {
-		chval = realPwrChunks[chi];
+	int chnkwatts, chnkvars, cval, wattdiff;
+	uint64_t trycy, chnki = nextVali/chunkSize;
+	for( ; chnki < chunki; chnki++ ) {
+		chnkwatts = realPwrChunks[chnki];
+		chnkvars = reactiveChunks[chnki];
 
-		if ( stable ) {
-			diff = chval - runVal;
+		if ( stableCnt >= chunkRun ) {
+			wattdiff = chnkwatts - runWatts;
 		} else {
-			diff = chval - realPwrChunks[chi - 1];
+			wattdiff = chnkwatts - realPwrChunks[chnki - 1];
 		}
 
-		if ( abs(diff) >= chgDiff ) {
-			if ( stable ) {
+		if ( abs(wattdiff) >= chgDiff ) {
+			if ( stableCnt >= chunkRun ) {
 				// was stable, but now have exceeded diff, so
 				// state goes to unstable until consecutive chunks
 				// stop changing again.
 				// the last stable chunk was the previous one (chi - 1)
 				// and the cycles may have started moving inside it
-				endCyci = chi*chunkSize - chunkSize/2;  // halfway into previous chunk
+				endCyci = chnki*chunkSize - chunkSize/2;  // halfway into previous chunk
 				if ( endCyci <= startVali ) {
 					cout << "whoa - endCyci less than startVali: " << endCyci << startVali << endl;
 					endCyci = startVali + 1;
@@ -377,52 +381,54 @@ sussChanges::doChanges( dataSamples *dsp )
 
 				// go forward by cycle to find
 				// specific cycle where change starts
-				for ( trycy = endCyci + 1; trycy < (chi+1)*chunkSize; trycy += 1 ) {
+				for ( trycy = endCyci + 1; trycy < (chnki+1)*chunkSize; trycy += 1 ) {
 					cval = realPower[trycy];
-					diff = cval - runVal;
-					if ( abs(diff) >= chgDiff ) {
+					wattdiff = cval - runWatts;
+					if ( abs(wattdiff) >= chgDiff ) {
 						cval = realPower[trycy + 1];
-						diff = cval - runVal;
-						if ( abs(diff) >= chgDiff ) {
+						wattdiff = cval - runWatts;
+						if ( abs(wattdiff) >= chgDiff ) {
 							break;
 						}
 					}
 					endCyci = trycy;
 				}
 
-				stable = false;
-				drift = runVal - startRunVal;
+				stableCnt = 0;
+				drift = runWatts - startRunWatts;
 				lastDurCycles = (int)(endCyci - startVali);
 
-				prevRunVal = runVal;  // gone to not stable, set to last stable chunk val
+				prevRunWatts = runWatts;  // gone to not stable, set to last stable chunk val
+				prevRunVARs = runVARs;
 			}
 		} else {
-			if ( !stable ) {
+			if ( stableCnt < chunkRun ) {
 				// diff is less than threshold, start new run if in transition
 
-				diff = chval - prevRunVal;
+				wattdiff = chnkwatts - prevRunWatts;
 
-				if ( abs(diff) < chgDiff*3 ) {  // BIG CHANGE - only report bigger changes!!!
+				if ( abs(wattdiff) < chgDiff*3 ) {  // BIG CHANGE - only report bigger changes!!!
 					// just a jumpy chunk, so even though endCyci has
-					// been changed, no matter.  leave startVali, startRunVal alone
+					// been changed, no matter.  leave startVali, startRunWatts alone
 					// and do not write change event records
-					stable = true;
-					runVal = chval;
+					stableCnt = chunkRun;
+					runWatts = chnkwatts;
+					runVARs = chnkvars;
 					continue;
 				}
 
-				if ( (chi*chunkSize - endCyci) < chunkSize ) {
+				if ( ++stableCnt < chunkRun ) {  // was (chi*chunkSize - endCyci) < chunkSize
 					// leave unstable, might just be a blip
 					continue;  // does not update runVal
 				}
 
-				stable = true;
+//				stable = true;  
 				if ( consOutp ) {
 					endrunout( *consOutp );  // uses prevRunVal
 				}
 				endrunout( cout );
 
-				startVali = chi*chunkSize - 1;  // previous chunk
+				startVali = (chnki - chunkRun + 1)*chunkSize - 1;  // start of stable run chunk
 
 				if ( startVali <= endCyci ) {
 					throw sExc( "what the - startVali less than endCyci??" );
@@ -442,12 +448,12 @@ sussChanges::doChanges( dataSamples *dsp )
 
 				for ( trycy = startVali; trycy > endCyci; trycy-- ) {
 					cval = realPower[trycy];
-					diff = cval - chval;
-					if ( abs(diff) >= chgDiff ) {
+					wattdiff = cval - chnkwatts;
+					if ( abs(wattdiff) >= chgDiff ) {
 						// see if this is just a jumpy cycle
 						cval = realPower[trycy - 1];
-						diff = cval - chval;
-						if ( abs(diff) >= chgDiff ) {
+						wattdiff = cval - chnkwatts;
+						if ( abs(wattdiff) >= chgDiff ) {
 							break;
 						}
 					}
@@ -462,9 +468,10 @@ sussChanges::doChanges( dataSamples *dsp )
 						writeCycleBurst( dsp, trycy );
 				}
 
-				// startRunVal is only being used for this change area calculation and drift output
+				// startRunWatts is only being used for this change area calculation and drift output
 				// both of which are not necessary to figure out here.  pretty sure.
-				startRunVal = chval;
+				startRunWatts = chnkwatts;
+				startRunVARs = chnkvars;
 				calcChangeArea();
 				if ( consOutp ) {
 					startrunout( *consOutp );
@@ -474,9 +481,10 @@ sussChanges::doChanges( dataSamples *dsp )
 				writeChgOut();
 			}
 		}
-		runVal = chval;
+		runWatts = chnkwatts;
+		runVARs = chnkvars;
 	}
-	nextVali = chi*chunkSize;
+	nextVali = chnki*chunkSize;
 }
 
 void
@@ -515,7 +523,7 @@ sussChanges::endrunout( ostream &out )
 {
 	// blank, value, driftrate
 	out << ",     ";
-	out << prevRunVal << ",   " << ((60000*drift)/lastDurCycles)/1000.0;
+	out << prevRunWatts << ",   " << ((60000*drift)/lastDurCycles)/1000.0;
 	out << endl;
 }
 
@@ -523,9 +531,9 @@ void
 sussChanges::startrunout( ostream &out )
 {
 	// real power change, real power value, reactive power change, changeArea
-	out << startRunVal - prevRunVal;
-	out << ",  " << startRunVal;
-	out << ",  " << reactivePower[startVali+2] - reactivePower[endCyci-2];
+	out << startRunWatts - prevRunWatts;
+	out << ",  " << startRunWatts;
+	out << ",  " << startRunVARs - prevRunVARs;
 	// changeArea - rampfactor?
 	if ( livedata ) {
 		out << ",  " << thetime() << endl;
@@ -558,8 +566,9 @@ sussChanges::writeChgOut()
 	}
 	ostream &chout = *eventsOutp;
 
-	int pwrval, reacval;
 	uint64_t cyci, ecyci;
+	int pwrval, reacval;
+#ifdef noasold
 	pwrval = 0; reacval = 0;
 	for ( cyci = endCyci - 4; cyci < endCyci; cyci++ ) {
 		pwrval += realPower[cyci];
@@ -567,7 +576,9 @@ sussChanges::writeChgOut()
 	}
 	pwrval /= 4;
 	reacval /= 4;
-	chout << "E, " << endCyci << ", " << pwrval << ", " << reacval << endl;
+#endif  // noasold
+	chout << "E, " << endCyci << ", " << prevRunWatts << ", " << prevRunVARs << endl;
+#ifdef notasold
 	pwrval = 0; reacval = 0;
 	for ( cyci = startVali + 1; cyci < startVali + 5; cyci++ ) {
 		pwrval += realPower[cyci];
@@ -575,7 +586,8 @@ sussChanges::writeChgOut()
 	}
 	pwrval /= 4;
 	reacval /= 4;
-	chout << "S, " << startVali << ", " << pwrval << ", " << reacval << endl;
+#endif
+	chout << "S, " << startVali << ", " << startRunWatts << ", " << startRunVARs << endl;
 #ifdef oldcode
 	pval = (reactivePower[endCyci-3] + reactivePower[endCyci-2] + reactivePower[endCyci-1])/3;
 	chout << "E, " << endCyci << ", " << prevRunVal << ", " << pval << endl;
@@ -601,7 +613,7 @@ sussChanges::calcChangeArea()
 	uint64_t cyci;
 	changeArea = 0;
 	for ( cyci = endCyci + 1; cyci <= startVali; cyci++ ) {
-		changeArea += (realPower[cyci - 1] + realPower[cyci] - 2*startRunVal)/2;
+		changeArea += (realPower[cyci - 1] + realPower[cyci] - 2*startRunWatts)/2;
 	}
 }
 
