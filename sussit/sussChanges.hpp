@@ -2,12 +2,12 @@
 
 class sussChanges
 {
-	uint64_t lastcycri;  // doCycles - raw sample index
+	uint64_t lastcycari;  // doCycles - sample index
 	uint64_t ncyci;      // doCycle - next full cycle
 	uint64_t prevcyci;   // doCycles - start of unprocessed run
 	uint64_t chunki;     // doChunk - last processed chunk index
 	uint64_t prevchunki; // doChunks
-	uint64_t startVali;  // cycle index at start of run
+	uint64_t startVali;  // cycle index at start of current run
 	uint64_t nextVali;   // next cycle index for doChanges
 	uint64_t endCyci;    // doChanges when stable -> false
 	cBuff<int> realPower;

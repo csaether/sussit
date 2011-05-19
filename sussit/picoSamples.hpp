@@ -9,6 +9,10 @@ public:
 
 	picoSamples() : dataSamples(10873) {}  // 42343/2, 43230, 8640 (diff probe)
 
+	int
+		avgSamples( int64_t rsi, int64_t endseq );
+	void
+		setup();
 	picoSamples*
 		isPico() { return this; }
 };

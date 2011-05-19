@@ -4,13 +4,13 @@
 int SamplesPerCycle = 128;
 int AvgNSamples = 4;
 
-sussChanges::sussChanges(void) : lastcycri(0),
+sussChanges::sussChanges(void) : lastcycari(0),
 		ncyci(0),
 		prevcyci(0),
 		chunki(0),
 		prevchunki(0),
 		endCyci(0),
-		chunkSize(7),  // was 12 forever..
+		chunkSize(8),  // was 12 forever..
 		chunkRun(2),
 		chgDiff(25),
 		preChgout(12),
@@ -28,8 +28,8 @@ sussChanges::sussChanges(void) : lastcycri(0),
 	reactivePower.allocateBuffer( 10 );  // 2^10 = 1024
 	realPower.allocateBuffer( 10 );  // 2^10 = 1024
 	cycRi.allocateBuffer( 10 );  // 2^10 = 1024
-	realPwrChunks.allocateBuffer( 4 );  // 2^4 = 16
-	reactiveChunks.allocateBuffer( 4 );  // 2^4 = 16
+	realPwrChunks.allocateBuffer( 6 );  // 2^6 = 64
+	reactiveChunks.allocateBuffer( 6 );  // 2^6 = 64
 }
 
 sussChanges::~sussChanges(void)
@@ -51,7 +51,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 	sout << ",Oversampling: " << AvgNSamples << endl;
 	sout << ",chunkSize: " << chunkSize << endl;
 	sout <<	",chgDiff: " << chgDiff << endl;
-	sout << ",wattFudgeDivor: " << dsp->wattFudgeDivor << endl;
+	sout << ",wattFudgeDivor: " << (dsp ? dsp->wattFudgeDivor : 10873) << endl;
 	sout << ",V2 starting at " << thetime() << endl;
 
 	if ( dsp ) {  // have picosource flag now also
@@ -60,6 +60,14 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 		dsp->startSampling();
 
 		livedata = dsp->liveData();  // true if picosource
+
+		if ( livedata ) try {
+			dsp->getSamples(0);
+		} catch ( sExc &ex ) {
+			cout << "initial getSamples exception " << ex.what() << endl;
+		}
+
+		dsp->rawSampSeq = 0;  // throw away initial set
 
 		// get at least an initial chunk run's worth of data
 		// plus a full cycle so initial crossing can be set
@@ -83,7 +91,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 
 			writeRawOut( dsp );
 		} else {
-			readCycles( 60, 21743 );  // FIX: - retrieve from file (and store first)
+			readCycles( 60, 10873 );
 		}
 
 		doChunks();
@@ -96,12 +104,14 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 			//writeCycleBurst( dsp, lastTimeStampCycle - 1 );
 			//writeCycleBurst( dsp, lastTimeStampCycle );
 
-			ifstream controlfile;
-			controlfile.open( "runsuss.txt", ios::in );
-			if ( !controlfile ) {
-				throw sExc( "runsuss file not found" );
+			if ( dsp ) {
+				ifstream controlfile;
+				controlfile.open( "runsuss.txt", ios::in );
+				if ( !controlfile ) {
+					throw sExc( "runsuss file not found" );
+				}
+				controlfile.close();
 			}
-			controlfile.close();
 		}
 
 		doChanges( dsp );
@@ -137,7 +147,7 @@ sussChanges::readCycles( int numcycles, int wattfudgedivor )
 			break;
 		}
 		realPower.s( realreac[0]/wattfudgedivor, ncyci );  // re-fudge
-		reactivePower.s( realreac[1], ncyci );
+		reactivePower.s( realreac[1]/wattfudgedivor, ncyci );
 	}
 }
 
@@ -147,14 +157,16 @@ sussChanges::doCycles( dataSamples *dsp )
 	uint64_t nextcycri;
 	prevcyci = ncyci;  // so we know how many are new
 
-	// lastcycri is always on a cycle boundary
+	// lastcycari is always on a cycle boundary
 
 	uint64_t crossi1, endri;
 	int64_t delta = 0;
-	endri = dsp->avgSampSeq - SamplesPerCycle;  // leave an extra cycle
-	nextcycri = lastcycri + SamplesPerCycle;
+	// leaving some samples ahead of where we will stop because the
+	// reactive power calculation is now reaching into the next cycle.
+	endri = dsp->avgSampSeq - 2*SamplesPerCycle;  // leave two extra cycles
+	nextcycri = lastcycari + SamplesPerCycle;
 	for ( ; nextcycri < endri; 
-		   lastcycri = nextcycri,
+		   lastcycari = nextcycri,
 		   nextcycri += SamplesPerCycle ) { //+ (1 & tog++)
 
 		crossi1 = findCrossing( dsp->voltsamples,
@@ -202,9 +214,9 @@ sussChanges::doCycle( dataSamples *dsp,
 					 const uint64_t nextcycri )
 {
 	int64_t cycsum = 0;
-	uint64_t ari, ri, sampcount = nextcycri - lastcycri;
+	uint64_t ari, ri, sampcount = nextcycri - lastcycari;
 
-	for ( ri = lastcycri; ri < nextcycri; ri++ ) {
+	for ( ri = lastcycari; ri < nextcycri; ri++ ) {
 		// this is where checking for any per sample noise would go
 		cycsum += dsp->ampsamples[ri]*dsp->voltsamples[ri];
 	}
@@ -220,7 +232,7 @@ sussChanges::doCycle( dataSamples *dsp,
 	// calculate reactive power by using current samples shifted a quarter of
 	// a cycle delayed (ahead in array)
 	cycsum = 0;
-	for ( ri = lastcycri, ari = lastcycri + (sampcount/4);
+	for ( ri = lastcycari, ari = lastcycari + (sampcount/4);
 			ri < nextcycri; ri++, ari++ ) {
 		// this is where checking for any per sample noise would go
 		cycsum += dsp->ampsamples[ari]*dsp->voltsamples[ri];
@@ -229,7 +241,7 @@ sussChanges::doCycle( dataSamples *dsp,
 	cval = (int)(cycsum/dsp->wattFudgeDivor);  // big fudge
 	reactivePower.s( cval, ncyci );
 
-	cycRi.s( lastcycri, ncyci++ );
+	cycRi.s( lastcycari, ncyci++ );
 }
 
 uint64_t
@@ -244,7 +256,7 @@ sussChanges::findCrossing(cBuff<short> &samples,
 	unsigned spc, val, low = 0xffffffff;
 	spc = SamplesPerCycle;
 	if ( !testrange ) {
-		testrange = spc/2 - 1;
+		testrange = spc/4 - 1;
 	}
 	toi = fromi - testrange/2;
 	ri = fromi + testrange/2;
@@ -278,14 +290,14 @@ sussChanges::firstTime( dataSamples *dsp )
 		}
 
 		// the B channel is the voltage signal, and we are looking for the zero
-		// crossing initally to set lastcycri.
+		// crossing initally to set lastcycari.
 
-		lastcycri = findCrossing( dsp->voltsamples,
+		lastcycari = findCrossing( dsp->voltsamples,
 			(3*SamplesPerCycle)/2 );	
 
 		doCycles( dsp );
 	} else {
-		readCycles( 60, 21743 );
+		readCycles( 60, 10873 );
 	}
 
 	doChunks();
@@ -308,6 +320,8 @@ void
 sussChanges::doChunks()
 {
 	uint64_t cyi;
+	// cyi + chunkSize is one more than will be used, so the end test
+	// is less than or equal
 	for ( cyi = prevchunki*chunkSize; (cyi + chunkSize) <= ncyci; cyi += chunkSize ) {
 		doChunk( cyi );
 	}
@@ -350,10 +364,12 @@ sussChanges::doChanges( dataSamples *dsp )
 
 		if ( abs(diff) >= chgDiff ) {
 			if ( stable ) {
-				// was stable, but now have exceeded diff
-				// the last stable chunk was the previous one
+				// was stable, but now have exceeded diff, so
+				// state goes to unstable until consecutive chunks
+				// stop changing again.
+				// the last stable chunk was the previous one (chi - 1)
 				// and the cycles may have started moving inside it
-				endCyci = chi*chunkSize - chunkSize/2;  // start looking here
+				endCyci = chi*chunkSize - chunkSize/2;  // halfway into previous chunk
 				if ( endCyci <= startVali ) {
 					cout << "whoa - endCyci less than startVali: " << endCyci << startVali << endl;
 					endCyci = startVali + 1;
@@ -381,8 +397,8 @@ sussChanges::doChanges( dataSamples *dsp )
 				prevRunVal = runVal;  // gone to not stable, set to last stable chunk val
 			}
 		} else {
-			// diff is less than threshold, start new run
 			if ( !stable ) {
+				// diff is less than threshold, start new run if in transition
 
 				diff = chval - prevRunVal;
 
@@ -412,6 +428,17 @@ sussChanges::doChanges( dataSamples *dsp )
 					throw sExc( "what the - startVali less than endCyci??" );
 				}
 				// back up and identify where it really starts
+/*
+	I think what we really want to do here is once we think we've backed into
+	the specific cycle, calculate the next cluster from that point and make sure
+	it is still stable.
+
+	How can we offset the cluster calculation to line up with the start of a new run cycle?
+	Already figured out possibly many clusters beyond this.  Not sure what that would buy.
+	And make sure the next run does not start for at least a cluster's worth of cycles?
+	Use the cluster run count here, most likely.
+	Still don't know why we got a bogus reactive power value.
+*/
 
 				for ( trycy = startVali; trycy > endCyci; trycy-- ) {
 					cval = realPower[trycy];
@@ -495,7 +522,7 @@ sussChanges::endrunout( ostream &out )
 void
 sussChanges::startrunout( ostream &out )
 {
-	// time, change, real power value, reactive power change, changeArea
+	// real power change, real power value, reactive power change, changeArea
 	out << startRunVal - prevRunVal;
 	out << ",  " << startRunVal;
 	out << ",  " << reactivePower[startVali+2] - reactivePower[endCyci-2];

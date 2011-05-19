@@ -8,8 +8,8 @@ public:
 	cBuff<int16_t> ampsamples;
 	unsigned wattFudgeDivor;
 
-	uint64_t rawSampSeq;
-	uint64_t avgSampSeq;
+	uint64_t rawSampSeq;  // where we are in actual samples
+	uint64_t avgSampSeq;  // and in the averaged ones, above
 	int deltadjust;
 
 	dataSamples(unsigned wattfudge) : wattFudgeDivor(wattfudge), rawSampSeq(0),

@@ -43,26 +43,13 @@ picoScope::setup()
 		throw sExc( "set channel B failed" );
 	}
 
-	// setup base class
-	dataSamples::setup();
+	// parent setup
+	picoSamples::setup();
 
-	// allocate circular buffers for raw data, say 10 seconds worth
-
-	int n = SamplesPerCycle*AvgNSamples*60*10;
-	int pwrof2 = 0;
-	do {
-		pwrof2 += 1;
-	} while (n >>= 1);
-
-	amins.allocateBuffer(pwrof2);
 	Aminsp = &amins;
-	amaxs.allocateBuffer(pwrof2);
 	Amaxsp = &amaxs;
-	bmins.allocateBuffer(pwrof2);
 	Bminsp = &bmins;
-	bmaxs.allocateBuffer(pwrof2);
 	Bmaxsp = &bmaxs;
-
 	RawSampSeqp = &rawSampSeq;
 }
 
@@ -76,10 +63,10 @@ picoScope::startSampling()
 	SamplesPerCycle = spsec/(60*AvgNSamples);
 	cout << SamplesPerCycle << " spc, " << nsecsper/2 << " nanosecs per raw sample, ";
 	cout << AvgNSamples << " times oversampling." << endl;
-	int obc = 400000;  // spsec*3 > 10240 ? spsec*3 : 10240;
+	int obc = 40000;  // spsec*3 > 10240 ? spsec*3 : 10240;
 	int sts = ps3000_run_streaming_ns( scopeh,
 		nsecsper/2, PS3000_NS,  // div 2 with aggr at 2
-		80000,  // 2048, 64000 // what is the best value for this?
+		8000,  // 2048, 64000 // what is the best value for this?
 		0,  // do not stop
 		2,  // aggregation, 2 uses both min and max buffs
 		obc );  // overview buffers count
@@ -129,16 +116,15 @@ int
 picoScope::getSamples( int milliSleep )
 {
 	int16_t over1 = 0;
-	int64_t asi, rsi = (rawSampSeq/AvgNSamples)*AvgNSamples;
-	int sts;
-	short val1, val2;
-	int val1sum, val2sum;
-
+	int64_t rsi = (rawSampSeq/AvgNSamples)*AvgNSamples;
+	if ( (rawSampSeq % AvgNSamples) != 0 ) {
+		cout << "sample offset" << endl;
+	}
 	if ( milliSleep != 0 ) {
 		::Sleep(milliSleep);
 	}
 	// this call is going to advance the rawSampSeq value
-	sts = ps3000_get_streaming_last_values( scopeh,
+	int sts = ps3000_get_streaming_last_values( scopeh,
 		GetOverviewBuffersMaxMin( StreamingDataCB ) );
 	if ( !sts ) {
 		throw sExc( "get_streaming_last_values call failed" );
@@ -150,44 +136,6 @@ picoScope::getSamples( int milliSleep )
 	}
 
 	int64_t endseq = (rawSampSeq/AvgNSamples)*AvgNSamples;
-	for ( asi = avgSampSeq;
-		  rsi < endseq;
-		  asi++ ) {
 
-		// inner loop to average raw samples
-		val1sum = 0;
-		val2sum = 0;
-		int64_t iendi = rsi + AvgNSamples;
-		for ( ; rsi < iendi; rsi++ ) {
-			val1 = amins[rsi];
-			if ( val1 == -32768 ) {
-				throw sExc("bad data");
-			}
-			val2 = amaxs[rsi];
-			if ( val2 == -32768 ) {
-				throw sExc("bad data");
-			}
-			val1sum += val1;
-			val1sum += val2;
-
-			val1 = bmins[rsi];
-			if ( val1 == -32768 ) {
-				throw sExc("bad data");
-			}
-			val2 = bmaxs[rsi];
-			if ( val2 == -32768 ) {
-				throw sExc("bad data");
-			}
-			val2sum += val1;
-			val2sum += val2;
-		}
-		val1sum /= 2*AvgNSamples;
-		ampsamples.s( val1sum, asi );
-		val2sum /= 2*AvgNSamples;
-		voltsamples.s( val2sum, asi );
-	}
-
-	int count = (int)(asi - avgSampSeq);
-	avgSampSeq = asi;
-	return count;
+	return avgSamples( rsi, endseq );
 }
