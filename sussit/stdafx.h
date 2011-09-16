@@ -4,9 +4,9 @@
 //
 
 #pragma once
-
+#ifdef WIN32
 #include "targetver.h"
-
+#endif // WIN32
 #include <stdio.h>
 #include <stdint.h>
 #ifdef WIN32
