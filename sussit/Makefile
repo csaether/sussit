@@ -1,6 +1,6 @@
 TARGET=sussit
 ROOT=../../
 
-SOURCE=sussit.cpp adcSource.cpp cBuff.cpp dataSamples.cpp sExc.cpp stdafx.cpp sussChanges.cpp
+SOURCE=sussit.o adcSource.o cBuff.o dataSamples.o stdafx.o sussChanges.o
 
 include $(ROOT)/makedefs

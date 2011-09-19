@@ -85,6 +85,8 @@ int main(int argc,
 #ifdef WIN32
     fileSource fs;
     picoScope ps;
+#else
+    adcSource as;
 #endif
     if ( !basename.empty() && picosource ) {
         basefname = basename;
@@ -96,6 +98,8 @@ int main(int argc,
     if ( picosource ) {
 #ifdef WIN32
         dsp = &ps;
+#else
+        dsp = &as;
 #endif
         if ( writesamples ) {
             susser.setRawOut( basefname.c_str() );
