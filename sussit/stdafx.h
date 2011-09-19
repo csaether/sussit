@@ -15,6 +15,7 @@
 #include <iostream>
 #include <string>
 #include <stdlib.h>
+#include <fstream>
 
 using namespace std;
 
@@ -23,14 +24,19 @@ using namespace std;
 
 #include "ps3000.h"
 #include "PScope.h"
+#include "picoSamples.hpp"
+#include "picoScope.hpp"
+#include "fileSource.hpp"
+
 #endif // WIN32
 
 #include "cBuff.hpp"
 #include "sExc.hpp"
 #include "dataSamples.hpp"
-#include "picoSamples.hpp"
-#include "picoScope.hpp"
-#include "fileSource.hpp"
+#ifndef WIN32
+#include "adcSamples.hpp"
+#include "adcSource.hpp"
+#endif  // not WIN32
 #include "sussChanges.hpp"
 #include "eventpub.hpp"
 

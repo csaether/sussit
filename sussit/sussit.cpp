@@ -82,8 +82,8 @@ int main(int argc,
     cout << SamplesPerCycle << " spc, " << nsecsper/2 << " nanosecs per sample, ";
 	cout << AvgNSamples << " oversampling" << endl;
 
-    fileSource fs;
 #ifdef WIN32
+    fileSource fs;
     picoScope ps;
 #endif
     if ( !basename.empty() && picosource ) {
@@ -105,7 +105,7 @@ int main(int argc,
             if ( basename.empty() ) {
                 throw sExc("Need a filename, dude");
             }
-
+#ifdef WIN32
             string fname = "../../scopedata/";
             fname += basename;
             if ( samplesource ) {
@@ -117,11 +117,12 @@ int main(int argc,
                 fname += "-cyc.dat";
                 susser.openCyclesIn( fname.c_str() );
             }
+#endif // WIN32, no raw data file input on debian
             // null dsp if cycle samples
-        } catch ( exception &x ) {
+      } catch ( exception &x ) {
             cout << x.what() << endl;
             return 1;
-        }
+      }
 
     try {
         if ( !basefname.empty() ) {
