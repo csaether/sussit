@@ -19,6 +19,10 @@
 
 using namespace std;
 
+#include "cBuff.hpp"
+#include "sExc.hpp"
+#include "dataSamples.hpp"
+
 #ifdef WIN32
 #include "windows.h"
 
@@ -30,9 +34,6 @@ using namespace std;
 
 #endif // WIN32
 
-#include "cBuff.hpp"
-#include "sExc.hpp"
-#include "dataSamples.hpp"
 #ifndef WIN32
 #include "adcSamples.hpp"
 #include "adcSource.hpp"
