@@ -160,7 +160,9 @@ sussChanges::doCycles( dataSamples *dsp )
 	// lastcycari is always on a cycle boundary
 
 	uint64_t crossi1, endri;
+#ifdef hmmmcode
 	int64_t delta = 0;
+#endif
 	// leaving some samples ahead of where we will stop because the
 	// reactive power calculation is now reaching into the next cycle.
 	endri = dsp->avgSampSeq - 2*SamplesPerCycle;  // leave two extra cycles
@@ -287,7 +289,7 @@ sussChanges::firstTime( dataSamples *dsp )
 	// don't need two full cycles to get going, but honestly..
 
 	if ( dsp ) {
-		if ( dsp->avgSampSeq < (2*SamplesPerCycle) ) {
+        if ( (int)dsp->avgSampSeq < (2*SamplesPerCycle) ) {
 			throw sExc("not enough initial samples");
 		}
 
@@ -650,6 +652,7 @@ sussChanges::writeRawOut( dataSamples *dsp )
 	if ( !rawOutp ) {
 		return;
 	}
+#ifdef WIN32
 	picoSamples *psp = dsp->isPico();
 	if ( !psp ) {
 		return;
@@ -664,6 +667,7 @@ sussChanges::writeRawOut( dataSamples *dsp )
 		rawOutp->write( (char*)raw, 8 );
 	}
 	nextrawouti = ri;
+#endif
 }
 
 void
