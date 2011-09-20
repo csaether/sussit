@@ -11,3 +11,6 @@ sussit/Debug/*
 *log
 *~
 sussit/Release/*
+*.o
+*.map
+sussit
