@@ -2,7 +2,7 @@
 
 class adcSamples : public dataSamples {
 public:
-    adcSamples() : dataSamples(700) {}
+    adcSamples() : dataSamples(1134) {}
 
     adcSamples*
     isAdc() { return this; }

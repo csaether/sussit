@@ -1,6 +1,8 @@
 TARGET=sussit
 ROOT=../../
 
+# PROJ_CFLAGS=-ggdb
+
 SOURCE=sussit.o adcSource.o cBuff.o dataSamples.o stdafx.o sussChanges.o
 
 include $(ROOT)/makedefs
