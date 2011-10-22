@@ -1,5 +1,5 @@
 TARGET=sussit
-ROOT=../../
+ROOT=../
 
 # PROJ_CFLAGS=-ggdb
 
