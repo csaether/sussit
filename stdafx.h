@@ -39,7 +39,6 @@ using namespace std;
 #include "adcSource.hpp"
 #endif  // not WIN32
 #include "sussChanges.hpp"
-#include "eventpub.hpp"
 
 string thetime();
 
