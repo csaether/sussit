@@ -1,5 +1,5 @@
 BUILD_TYPE = MULTI_SRC_BIN
-BIN_NAME   = loadsuss
+BIN_NAME   = sussit
 LIBS       = pthread stdc++
 
 MAKES ?= ../makes
