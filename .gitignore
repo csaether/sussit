@@ -1,8 +1,0 @@
-*
-!*.h
-!*.hpp
-!*.cpp
-!Makefile
-!Makefile-MM
-!winfiles/
-!.gitignore
