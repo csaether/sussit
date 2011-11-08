@@ -4,7 +4,7 @@
 
 adcSource::~adcSource(void)
 {
-	::close( adcfd );
+    ::close( adcfd );
     if ( stagep ) {
         delete [] stagep;
         stagep = 0;
@@ -14,14 +14,14 @@ adcSource::~adcSource(void)
 void
 adcSource::open( const char *fname )
 {
-	if ( !fname ) {
-        fname = "/dev/adc2";  // let the driver do averaging
+    if ( !fname ) {
+        fname = "/dev/adc1";  // let the driver do averaging
     }
     adcfd = ::open( fname, O_RDWR );
 
-	if ( adcfd == -1 ) {
-		throw sExc( "adc device not opened" );
-	}
+    if ( adcfd == -1 ) {
+        throw sExc( "adc device not opened" );
+    }
 }
 
 void
@@ -31,7 +31,7 @@ adcSource::setup()
 
     stagecnt = 10000*4;  // 10k samples, 4 channels
     stagep = new int16_t[stagecnt];  // FIX - need to calculate this
-	dataSamples::setup();
+    dataSamples::setup();
 }
 
 void
@@ -44,6 +44,12 @@ adcSource::startSampling()
     nanosleep( &tspec, NULL );
     write( adcfd, "c012", 4 );  // three channels
     nanosleep( &tspec, NULL );
+    write( adcfd, "hz6400000", 10 );
+    nanosleep( &tspec, NULL );
+    write( adcfd, "i0", 2 );
+    nanosleep( &tspec, NULL );
+    write( adcfd, "d7", 2 );
+    nanosleep( &tspec, NULL );    
     write( adcfd, "r", 1 );
 
     // sets the offset initially
@@ -53,7 +59,7 @@ adcSource::startSampling()
 int
 adcSource::getSamples( int milliSleep )
 {
-	uint64_t ri = rawSampSeq;
+    uint64_t ri = rawSampSeq;
     struct timespec tspec;
     ssize_t n;
 
@@ -83,7 +89,7 @@ adcSource::getSamples( int milliSleep )
     }
 
     n = ri - rawSampSeq;
-	rawSampSeq = ri;
+    rawSampSeq = ri;
     avgSampSeq = ri;
-	return n;
+    return n;
 }
