@@ -47,13 +47,6 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
     // raw data is not phase adjusted (previously it was)
     unsigned newvals = 0;
 
-    sout << ",SamplesPerCycle: " << SamplesPerCycle << endl;
-    sout << ",Oversampling: " << AvgNSamples << endl;
-    sout << ",chunkSize: " << chunkSize << endl;
-    sout << ",chgDiff: " << chgDiff << endl;
-    sout << ",wattFudgeDivor: " << (dsp ? dsp->wattFudgeDivor : 10873) << endl;
-    sout << ",V2 starting at " << thetime() << endl;
-
     if ( dsp ) {  // have picosource flag now also
         dsp->setup();
 
@@ -81,6 +74,13 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
     firstTime( dsp );
     timestampout( cout );  // initial timestamp
     timestampout( *eventsOutp );
+
+    sout << ",SamplesPerCycle: " << SamplesPerCycle << endl;
+    sout << ",Oversampling: " << AvgNSamples << endl;
+    sout << ",chunkSize: " << chunkSize << endl;
+    sout << ",chgDiff: " << chgDiff << endl;
+    sout << ",wattFudgeDivor: " << (dsp ? dsp->wattFudgeDivor : 10873) << endl;
+    sout << ",V2 starting at " << thetime() << endl;
 
     while ( !maxcycles || (ncyci < maxcycles) ) try {
         if ( dsp ) {
@@ -169,10 +169,10 @@ sussChanges::doCycles( dataSamples *dsp )
     nextcycri = lastcycari + SamplesPerCycle;
     for ( ; nextcycri < endri; 
            lastcycari = nextcycri,
-           nextcycri += SamplesPerCycle ) { //+ (1 & tog++)
+           nextcycri += SamplesPerCycle ) {
 
         crossi1 = findCrossing( dsp->voltsamples,
-            nextcycri ); //  + 10, 20 ? // + SamplesPerCycle/4 );
+                                nextcycri, SamplesPerCycle/8 );
 
         // adjust nextcycri before doing this cycle
 #ifdef hmmmcode
@@ -255,6 +255,50 @@ sussChanges::findCrossing(cBuff<short> &samples,
 {
     // the search is centered around fromi, looking back samplespercycle,
     // plus or minus half the testrange
+    // looking for the absolute minimum of a set of samples centered
+    // around the test sample
+    const int delta = 2;
+    uint64_t toi, ri, crossi;
+    int here;
+    unsigned val, low;
+    if ( !testrange ) {
+        testrange = SamplesPerCycle/4 - 1;
+    }
+    if ( testrange < 3*delta ) {
+        testrange = 3*delta;
+    }
+
+    ri = fromi - testrange/2;
+    crossi = ri;
+    toi = ri + delta;
+    here = 0;
+    for ( ri -= delta; ri <= toi; ri++ ) {
+        here += samples[ri];
+    }
+    low = abs(here);
+
+    toi = fromi + testrange/2;
+    for ( ri = fromi - testrange/2 + 1; ri < toi; ri++ ) {
+        here -= samples[ri - delta - 1];  // lose previous low cycnum
+        here += samples[ri + delta];  // add new high cycnum
+
+        val = abs(here);
+        if ( val < low ) {
+            low = val;
+            crossi = ri;
+        }
+    }
+    return crossi;
+}
+
+#ifdef oldcode
+uint64_t
+sussChanges::xfindCrossing(cBuff<short> &samples,
+                          uint64_t fromi,
+                          int testrange )
+{
+    // the search is centered around fromi, looking back samplespercycle,
+    // plus or minus half the testrange
     uint64_t toi, ri, crossi;
     int here, back1;
     unsigned spc, val, low = 0xffffffff;
@@ -282,22 +326,43 @@ sussChanges::findCrossing(cBuff<short> &samples,
     }
     return crossi;
 }
+#endif
 
 void
 sussChanges::firstTime( dataSamples *dsp )
 {
-    // don't need two full cycles to get going, but honestly..
-
     if ( dsp ) {
         if ( (int)dsp->avgSampSeq < (2*SamplesPerCycle) ) {
             throw sExc("not enough initial samples");
         }
 
-        // the B channel is the voltage signal, and we are looking for the zero
-        // crossing initally to set lastcycari.
+        // find the first zero crossing
 
         lastcycari = findCrossing( dsp->voltsamples,
-            (3*SamplesPerCycle)/2 );    
+                                   SamplesPerCycle,
+                                   SamplesPerCycle/2 );
+
+        // find the remaining zero crossings in the first set
+        // of samples to establish the actual samples per cycle
+
+        uint64_t nri, eri, cri, lri;
+        int64_t sphc, sphcsum = 0;
+        int cycnt = 0;
+        // end raw sample to look at
+        eri = dsp->avgSampSeq - SamplesPerCycle;
+
+        // advance a half cycle at a time - initially use expected rate
+        nri = lastcycari + SamplesPerCycle/2;  // next raw index
+        lri = lastcycari;  // last zero crossing raw index 
+        for ( ; nri < eri; ) {
+            cri = findCrossing( dsp->voltsamples, nri );
+            sphc = (signed)cri - (signed)lri;  // observed # of samples
+            sphcsum += sphc;
+            cycnt++;
+            nri = cri + sphc;
+            lri = cri;
+        }
+        SamplesPerCycle = (2*sphcsum)/cycnt;
 
         doCycles( dsp );
     } else {

@@ -5,10 +5,10 @@
 
 #ifdef WIN32
 int _tmain(int argc,
-		   _TCHAR* argv[])
+           _TCHAR* argv[])
 #else
 int main(int argc,
-		 char *argv[])
+         char *argv[])
 #endif
 // <filebasename> [p | pr | pc | r | c] [minutes] [samplespercycle] [avgN]
 /* filebasename - base name, always write event log
@@ -28,9 +28,9 @@ int main(int argc,
     if ( argc > 1 ) {
         basename = argv[1];
     } else {
-		cout << "Usage: <filebasename> [p | pr | pc | r | c] [minutes] [samplespercycle] [avgN]" << endl;
-		return 1;
-	}
+        cout << "Usage: <filebasename> [p | pr | pc | r | c] [minutes] [samplespercycle] [avgN]" << endl;
+        return 1;
+    }
 
     bool writesamples = false;
     bool writecycles = false;
@@ -66,21 +66,21 @@ int main(int argc,
     if ( argc > 4 ) {
         SamplesPerCycle = atoi( argv[4] );
     }
-	if ( argc > 5 ) {
-		AvgNSamples = atoi( argv[5] );
-		if ( AvgNSamples == 0 ) {
-			AvgNSamples = 1;
-		}
-	}
+    if ( argc > 5 ) {
+        AvgNSamples = atoi( argv[5] );
+        if ( AvgNSamples == 0 ) {
+            AvgNSamples = 1;
+        }
+    }
 
     int spsec = SamplesPerCycle*60;
     int nsecsper = 1000000000/spsec;
-	// needs to be multiple of 50 nanosecs - why the 200, instead of 100?
+    // needs to be multiple of 50 nanosecs - why the 200, instead of 100?
     nsecsper = (nsecsper/200)*200;  
     spsec = (1000000000/nsecsper);
     SamplesPerCycle = spsec/60;
     cout << SamplesPerCycle << " spc, " << nsecsper/2 << " nanosecs per sample, ";
-	cout << AvgNSamples << " oversampling" << endl;
+    cout << AvgNSamples << " oversampling" << endl;
 
 #ifdef WIN32
     fileSource fs;
@@ -150,4 +150,3 @@ int main(int argc,
 
     return 0;
 }
-

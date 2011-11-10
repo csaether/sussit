@@ -43,12 +43,14 @@ adcSource::startSampling()
     write( adcfd, "s", 1 );
     nanosleep( &tspec, NULL );
     write( adcfd, "c012", 4 );  // three channels
+
     nanosleep( &tspec, NULL );
-    write( adcfd, "hz6400000", 10 );
+    write( adcfd, "hz6800000", 10 );
     nanosleep( &tspec, NULL );
     write( adcfd, "i0", 2 );
     nanosleep( &tspec, NULL );
-    write( adcfd, "d7", 2 );
+    write( adcfd, "d8", 2 );
+
     nanosleep( &tspec, NULL );    
     write( adcfd, "r", 1 );
 
