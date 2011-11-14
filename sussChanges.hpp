@@ -2,19 +2,20 @@
 
 class sussChanges
 {
-    uint64_t lastcycari;  // doCycles - sample index
-    uint64_t ncyci;      // doCycle - next full cycle
-    uint64_t prevcyci;   // doCycles - start of unprocessed run
-    uint64_t chunki;     // doChunk - last processed chunk index
-    uint64_t prevchunki; // doChunks
+    uint64_t lastCycAri;  // doCycles - sample index
+    uint64_t nCyci;      // doCycle - next full cycle
+    uint64_t prevCyci;   // doCycles - start of unprocessed run
+    uint64_t cHunki;     // doChunk - last processed chunk index
+    uint64_t prevcHunki; // doChunks
     uint64_t startVali;  // cycle index at start of current run
     uint64_t nextVali;   // next cycle index for doChanges
     uint64_t endCyci;    // doChanges when stable -> false
-    cBuff<int> realPower;
-    cBuff<int> reactivePower;
     cBuff<uint64_t> cycRi;
-    cBuff<int> realPwrChunks;
-    cBuff<int> reactiveChunks;
+    int numLegs;
+    cBuff<int> realPowerLeg[MaxLegs];
+    cBuff<int> reactivePowerLeg[MaxLegs];
+    cBuff<int> realPwrChunksLeg[MaxLegs];
+    cBuff<int> reactiveChunksLeg[MaxLegs];
     unsigned chunkSize;
     unsigned chunkRun;
     int chgDiff;
@@ -50,7 +51,7 @@ class sussChanges
     void
         doCycles( dataSamples *dsp );
     void
-        doCycle( dataSamples *dsp, const uint64_t nextcycri );
+        doCycle( dataSamples *dsp, const uint64_t nextcycri, int leg );
     void
         firstTime( dataSamples *dsp );
     void
@@ -102,4 +103,14 @@ public:
         processData( dataSamples *dsp,uint64_t maxcycles = 0 );
     void
         openCyclesIn( const char *fname );
+    void
+        setNumLegs( int legs );
+    int
+        realPowerTotal( uint64_t ix );
+    int
+        reactivePowerTotal( uint64_t ix );
+    int
+        realPwrChunksTotal( uint64_t ix );
+    int
+        reactiveChunksTotal( uint64_t ix );
 };

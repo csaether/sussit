@@ -31,7 +31,10 @@ adcSource::setup()
 
     stagecnt = 10000*4;  // 10k samples, 4 channels
     stagep = new int16_t[stagecnt];  // FIX - need to calculate this
-    dataSamples::setup();
+    allocateChannels( 3 );
+
+    addLeg( 0, 1 );
+    addLeg( 0, 1 );
 }
 
 void
@@ -74,20 +77,16 @@ adcSource::getSamples( int milliSleep )
         throw sExc("read failed");
     }
 
-    int numchans = 3;
-    const int ivolt = 0;
-    const int ct1 = 1;
-    //    const int ct2 = 2;
+    int i;
     const int zeroval[] = {8184, 8181, 8182};
-    int16_t voltval, ampval1;
+    int16_t val;
     int16_t *bp, *endp = stagep + n/2;
 
-    for ( bp = stagep; bp < endp; bp += numchans ) {
-        voltval = bp[ivolt] - zeroval[ivolt];
-        ampval1 = bp[ct1] - zeroval[ct1];
-
-        voltsamples.s( voltval, ri );
-        ampsamples.s( ampval1, ri++ );
+    for ( bp = stagep; bp < endp; bp += NumChans, ri++ ) {
+        for ( i = 0; i < NumChans; i++ ) {
+            val = bp[i] - zeroval[i];
+            ChannelData[i].s( val, ri );
+        }
     }
 
     n = ri - rawSampSeq;

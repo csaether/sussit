@@ -5,7 +5,7 @@ void
 picoSamples::setup()
 {
 	// setup base class
-	dataSamples::setup();
+	dsetup( 2 );
 
 	// allocate circular buffers for raw data, say 10 seconds worth
 

@@ -110,6 +110,7 @@ int main(int argc,
                 throw sExc("Need a filename, dude");
             }
 #ifdef WIN32
+            susser.setNumLegs( 1 );  // only one leg for my picoscope
             string fname = "../../scopedata/";
             fname += basename;
             if ( samplesource ) {
@@ -121,7 +122,7 @@ int main(int argc,
                 fname += "-cyc.dat";
                 susser.openCyclesIn( fname.c_str() );
             }
-#endif // WIN32, no raw data file input on debian
+#endif // WIN32, no raw data file input on debian - FIX?
             // null dsp if cycle samples
       } catch ( exception &x ) {
             cout << x.what() << endl;

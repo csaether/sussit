@@ -3,6 +3,6 @@ ROOT=../
 
 # PROJ_CFLAGS=-ggdb
 
-SOURCE=sussit.o adcSource.o cBuff.o dataSamples.o stdafx.o sussChanges.o
+SOURCE=dataSamples.o sussit.o adcSource.o cBuff.o stdafx.o sussChanges.o
 
 include $(ROOT)/makedefs

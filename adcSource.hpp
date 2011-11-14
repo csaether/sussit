@@ -6,7 +6,8 @@ class adcSource : public adcSamples {
     int16_t *stagep;
     int stagecnt;
 public:
-	adcSource() : adcSamples(), stagep(0), stagecnt(0) {}
+	adcSource()
+        : adcSamples(), stagep(0), stagecnt(0) {}
 	~adcSource(void);
 
 	void
