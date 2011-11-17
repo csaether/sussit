@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "adcSource.hpp"
 #include <fcntl.h>
-#include "inih/ini.h"
+#include "ini.h"
 
 adcSource::~adcSource(void)
 {
