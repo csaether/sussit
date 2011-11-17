@@ -35,7 +35,7 @@ using namespace std;
 #endif // WIN32
 
 #ifndef WIN32
-#include "adcSamples.hpp"
+/* #include "adcSamples.hpp" */
 #include "adcSource.hpp"
 #endif  // not WIN32
 #include "sussChanges.hpp"

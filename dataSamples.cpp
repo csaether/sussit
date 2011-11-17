@@ -1,37 +1,60 @@
 #include "stdafx.h"
 #include "dataSamples.hpp"
 
-void
-dataSamples::allocateChannels( int numchans )
+dataSamples::dataSamples( )
+        : rawSampSeq(0),
+          avgSampSeq(0),
+          NumChans(0),
+          NumLegs(0)
 {
-    if ( numchans > MaxChannels ) {
-        throw sExc("too many channels");
+    unsigned i;
+    for ( i = 0; i < MaxLegs; i++ ) {
+        VoltChan[i] = 0;
+        AmpChan[i] = 0;
+        WattFudgeDivor[i] = 0;
     }
-    NumChans = numchans;
+}
+
+void
+dataSamples::allocateChannelBuffers()
+{
+    if ( NumChans == 0 ) {
+        throw sExc("no channels");
+    }
 
 	// allocate circular buffers for raw data, say 10 seconds worth
 
-	int n = SamplesPerCycle*60*10;
+	unsigned n = SamplesPerCycle*60*10;
 	int pwrof2 = 0;
 	do {
 		pwrof2 += 1;
 	} while (n >>= 1);
 
-    for ( n = 0; n < numchans; n++ ) {
+    for ( n = 0; n < NumChans; n++ ) {
         ChannelData[n].allocateBuffer(pwrof2);
     }
 }
 
-void
-dataSamples::addLeg( int voltchan, int ampchan )
+unsigned
+dataSamples::checkLeg( unsigned leg )
 {
-    if ( NumLegs == MaxLegs ) {
+    if ( leg >= MaxLegs ) {
         throw sExc("no more legs room");
     }
-    if ( voltchan >= NumChans || ampchan >= NumChans ) {
-        throw sExc("no such channel");
+    if ( leg >= NumLegs ) {
+        NumLegs = leg + 1;
     }
-    LegSign[NumLegs] = 1;  // until shown otherwise
-    VoltChan[NumLegs] = voltchan;
-    AmpChan[NumLegs++] = ampchan;
+    return leg;
+}
+
+unsigned
+dataSamples::checkChan( unsigned chan )
+{
+    if ( chan >= MaxChannels ) {
+        throw sExc("no more chans room");
+    }
+    if ( chan >= NumChans ) {
+        NumChans = chan + 1;
+    }
+    return chan;
 }

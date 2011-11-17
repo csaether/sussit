@@ -38,6 +38,7 @@ int main(int argc,
     bool samplesource = false;
     bool picosource = false;
     char ct;
+
     if ( basename.empty() ) {
         picosource = true;  // everything else false - no output files
     } else if ( argc > 2 ) {
