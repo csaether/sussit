@@ -198,7 +198,8 @@ sussChanges::doCycles( dataSamples *dsp )
         uint64_t i;
         int realreac[2];
         for ( i = prevCyci; i < nCyci; i++ ) {
-            realreac[0] = realPowerLeg[0][i]*dsp->WattFudgeDivor[0];  // for re-fudging
+            // times wattfudge for re-fudging
+            realreac[0] = realPowerLeg[0][i]*dsp->WattFudgeDivor[0];
             realreac[1] = reactivePowerLeg[0][i]*dsp->WattFudgeDivor[0];
             cycleOutp->write( (char*)realreac, 8 );
         }
@@ -222,7 +223,7 @@ sussChanges::doCycle( dataSamples *dsp,
         cycsum += ival;
     }
     cycval = cycsum/(sampcount*dsp->WattFudgeDivor[leg]);
-    cval = (int)cycval;
+    cval = (int)cycval - dsp->HumPower[leg];
     realPowerLeg[leg].s( cval, nCyci );
 
     // a positive delta is lagging in time (further ahead in the sample array)
@@ -235,7 +236,7 @@ sussChanges::doCycle( dataSamples *dsp,
         cycsum += ampsamps[ampri]*voltsamps[ri];
     }
     cycval = cycsum/(sampcount*dsp->WattFudgeDivor[leg]);
-    cval = (int)cycval;
+    cval = (int)cycval - dsp->HumReactive[leg];
     reactivePowerLeg[leg].s( cval, nCyci );
 }
 
@@ -339,6 +340,8 @@ sussChanges::firstTime( dataSamples *dsp )
         uint64_t ri, nri, eri, cri, lri, lfri;
         int64_t sphc, evensphcsum, oddsphcsum;
         int half, cycnt = 0;
+        int64_t ssum[MaxLegs] = {0};
+        unsigned leg;
         // end raw sample, will go up to a cycle beyond this
         eri = dsp->avgSampSeq - 2*SamplesPerCycle;
 
@@ -360,16 +363,12 @@ sussChanges::firstTime( dataSamples *dsp )
                 lri = cri;
             }
 
-            unsigned leg;
             for ( leg = 0; leg < dsp->NumLegs; leg++ ) {
-                int64_t sum = 0;
                 cBuff<int16_t> &ampsamps = dsp->ampSamples(leg);
                 for ( ri = lfri; ri < lri; ri++ ) {
-                    sum += ampsamps[ri];
+                    ssum[leg] += ampsamps[ri];
                 }
-                cout << "leg " << leg << " avg: " << sum/(int)(lri-lfri) << endl;
             }
-            cout << "full cycle " << lri - lfri << endl;
             cycnt++;  // full cycles
         }
         SamplesPerCycle = (evensphcsum+oddsphcsum)/cycnt;
@@ -377,7 +376,10 @@ sussChanges::firstTime( dataSamples *dsp )
         cout << "samples per cycle: " << SamplesPerCycle << endl;
         cout << "even cycle count: " << evensphcsum/cycnt << endl;
         cout << "odd cycle count: " << oddsphcsum/cycnt << endl;
-
+        for ( leg = 0; leg < dsp->NumLegs; leg++ ) {
+            cout << "leg " << leg << " amp avg: ";
+            cout << ssum[leg]/(SamplesPerCycle*cycnt) << endl;
+        }
         doCycles( dsp );
     } else {
         readCycles( 60, 10873 );

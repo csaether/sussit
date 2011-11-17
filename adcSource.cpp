@@ -51,6 +51,12 @@ cfg_value_callback( void *thisp, const char *section,
   0:1134  ; leg:value
   1:1130
 
+  [humPower]
+  0:15  ; leg:value - subtract to get to zero
+
+  [humReactive]
+  0:14  ; leg;value  - subtract to get to zero
+
  */
 {
     adcSource *asp = (adcSource*)thisp;
@@ -80,6 +86,12 @@ cfg_value_callback( void *thisp, const char *section,
     } else if ( sect == "legWattFudgeDivor" ) {
         leg = asp->checkLeg( atoi( cname ) );
         asp->WattFudgeDivor[leg] = atoi( value );
+    } else if ( sect == "legHumPower" ) {
+        leg = asp->checkLeg( atoi( cname ) );
+        asp->HumPower[leg] = atoi( value );
+    } else if ( sect == "legHumReactive" ) {
+        leg = asp->checkLeg( atoi( cname ) );
+        asp->HumReactive[leg] = atoi( value );
     }
 
     return 1;  // success to ini_parse

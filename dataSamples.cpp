@@ -12,6 +12,8 @@ dataSamples::dataSamples( )
         VoltChan[i] = 0;
         AmpChan[i] = 0;
         WattFudgeDivor[i] = 0;
+        HumPower[i] = 0;
+        HumReactive[i] = 0;
     }
 }
 

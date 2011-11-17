@@ -19,6 +19,8 @@ public:
     int AmpChan[MaxLegs];
 
 	int WattFudgeDivor[MaxLegs];
+    int HumPower[MaxLegs];
+    int HumReactive[MaxLegs];
 
 	dataSamples( );
 
