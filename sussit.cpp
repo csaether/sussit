@@ -49,6 +49,7 @@ int main(int argc,
                 writesamples = true;
             } else if ( argv[2][1] == 'c' ) {
                 writecycles = true;
+                writebursts = true;
             } else if ( argv[2][1] == 'b' ) {
                 writebursts = true;
             }

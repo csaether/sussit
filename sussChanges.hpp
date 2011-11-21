@@ -11,7 +11,7 @@ class sussChanges
     uint64_t nextVali;   // next cycle index for doChanges
     uint64_t endCyci;    // doChanges when stable -> false
     cBuff<uint64_t> cycRi;
-    int numLegs;
+    unsigned numLegs;
     cBuff<int> realPowerLeg[MaxLegs];
     cBuff<int> reactivePowerLeg[MaxLegs];
     cBuff<int> realPwrChunksLeg[MaxLegs];
@@ -21,12 +21,12 @@ class sussChanges
     int chgDiff;
     unsigned preChgout;
     unsigned postChgout;
-    int startRunWatts;  // real power at start of run
-    int startRunVARs;  // reactive power at start
-    int runWatts;  // latest stable run real power
-    int runVARs;  // latest stable reactive power
-    int prevRunWatts; // previous stable run real power
-    int prevRunVARs;  // previous reactive power
+    int startRunWattsLeg[MaxLegs];  // real power at start of run
+    int startRunVARsLeg[MaxLegs];  // reactive power at start
+    int runWattsLeg[MaxLegs];  // latest stable run real power
+    int runVARsLeg[MaxLegs];  // latest stable reactive power
+    int prevRunWattsLeg[MaxLegs]; // previous stable run real power
+    int prevRunVARsLeg[MaxLegs];  // previous reactive power
     int drift;
     int lastDurCycles;
 //  int changeArea;
@@ -81,6 +81,13 @@ class sussChanges
         readCycles( int numcycles, int wattfudgedivor );
     void
         timestampout( ostream &out );
+
+    int startRunWatts();
+    int startRunVARs();
+    int runWatts();
+    int runVARs();
+    int prevRunWatts();
+    int prevRunVARs();
 public:
     sussChanges(void);
     ~sussChanges(void);
