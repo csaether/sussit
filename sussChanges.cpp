@@ -58,8 +58,6 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
     unsigned newvals = 0;
 
     if ( dsp ) {  // have picosource flag now also
-        dsp->setup();
-
         setNumLegs( dsp->NumLegs );
 
         dsp->startSampling();
@@ -69,7 +67,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
         if ( livedata ) try {
             dsp->getSamples(0);
         } catch ( sExc &ex ) {
-            cout << "initial getSamples exception " << ex.what() << endl;
+            cout << "initial getSamples exception " << ex.msg() << endl;
         }
 
         dsp->rawSampSeq = 0;  // throw away initial set
@@ -119,13 +117,18 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
                 ifstream controlfile;
                 controlfile.open( "runsuss.txt", ios::in );
                 if ( !controlfile ) {
-                    throw sExc( "runsuss file not found" );
+                    break;  // exit quietly
                 }
                 controlfile.close();
             }
         }
 
         doChanges( dsp );
+    } catch ( sExc &x ) {
+        sout << ",caught sExc " << x.msg() << endl;
+        sout << startRunWatts() << ",\t" << runWatts() << ",\t";
+        sout << ",end second,\t" << nCyci/60.0 << endl;
+        throw;
     } catch ( exception &x ) {
         sout << ",caught exception " << x.what() << endl;
         sout << startRunWatts() << ",\t" << runWatts() << ",\t";
@@ -620,7 +623,7 @@ sussChanges::endrunout( ostream &out )
 {
     // blank, <watts, vars>..., driftrate
     unsigned leg;
-    out << ",     ";
+    out << "E: " << prevRunWatts() << ", ";
     for ( leg = 0; leg < numLegs; leg++ ) {
         out << prevRunWattsLeg[leg] << ", " << prevRunVARsLeg[leg] << ", ";
     }
@@ -632,7 +635,7 @@ sussChanges::startrunout( ostream &out )
 {
 
     unsigned leg;
-    out << startRunWatts() - prevRunWatts();
+    out << "D: " << startRunWatts() - prevRunWatts();
     for ( leg = 0; leg < numLegs; leg++ ) {
         out << ",  " << (startRunWattsLeg[leg] - prevRunWattsLeg[leg]);
         out << ",  " << (startRunVARsLeg[leg] - prevRunVARsLeg[leg]);

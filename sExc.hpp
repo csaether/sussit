@@ -1,10 +1,10 @@
 #pragma once
 
-class sExc : public exception {
+class sExc {
+    string Msg;
 public:
-#ifdef WIN32
-	sExc( const char *atext) : exception(atext) { }
-#else
-	sExc( const char *atext) : exception() { }
-#endif // WIN32
+	sExc( const char *atext) : Msg(atext) { }
+
+    std::string
+    msg() { return Msg; }
 };

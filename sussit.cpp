@@ -2,6 +2,9 @@
 //
 
 #include "stdafx.h"
+#include <string.h>
+#include <errno.h>
+#include <sys/wait.h>
 
 #ifdef WIN32
 int _tmain(int argc,
@@ -132,6 +135,11 @@ int main(int argc,
       }
 
     try {
+        if ( dsp ) {
+            // catch errors before forking
+            dsp->setup();
+        }
+
         if ( !basefname.empty() ) {
             susser.setConsOut( basefname.c_str() );
         }
@@ -145,10 +153,51 @@ int main(int argc,
         }
         susser.setEventsOut( basefname.c_str() );
 
-        susser.processData( dsp, minutes*60*60 );
-
+    } catch ( sExc &x ) {
+        cout << x.msg() << endl;
+        return 1;
     } catch ( exception &x ) {
         cout << x.what() << endl;
+        return 2;
+    }
+
+    pid_t fpid;
+    int exitsts;
+
+    while ( true ) {
+        fpid = fork();
+        if ( fpid == 0 ) {
+            // the child
+            break;
+        }
+        if ( fpid < 0 ) {
+            cout << strerror(errno) << endl;
+        }
+
+        fpid = wait( &exitsts );
+        if ( fpid < 0 ) {
+            cout << strerror(errno) << endl;
+            return 3;
+        }
+        if ( WIFEXITED(exitsts) && WEXITSTATUS(exitsts) == 0 ) {
+            cout << "normal exit" << endl;
+            return 0;
+        }
+    }
+
+    // the child - call the main method that will do the work
+    // until something goes wrong or told to stop
+
+    try {
+
+        susser.processData( dsp, minutes*60*60 );
+        
+    } catch ( sExc &x ) {
+        cout << x.msg() << endl;
+        return 1;
+    } catch ( exception &x ) {
+        cout << x.what() << endl;
+        return 2;
     }
 
     return 0;
