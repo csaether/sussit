@@ -161,6 +161,7 @@ int main(int argc,
         return 2;
     }
 
+#ifdef forkit
     pid_t fpid;
     int exitsts;
 
@@ -191,8 +192,8 @@ int main(int argc,
 
         return 4;
     }
-
-    // the child - call the main method that will do the work
+#endif
+    // the child, if forked - call the main method that will do the work
     // until something goes wrong or told to stop
 
     try {
