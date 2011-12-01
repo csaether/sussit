@@ -143,5 +143,7 @@ dataSamples::setup( const char *inifname )
         cout << "ini_parse failed: " << sts << endl;
     }
 
-    allocateChannelBuffers();
+    if ( rawSamples() ) {
+        allocateChannelBuffers();
+    }
 }

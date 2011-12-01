@@ -16,20 +16,15 @@ fileSource::open( const char *fname )
 }
 
 void
-fileSource::setup()
+fileSource::setup( const char *inifile )
 {
-	// could store and read samplespercycle in file, but not for now
-	// 2^18 is 256K
-	//amins.allocateBuffer(18);
-	//amaxs.allocateBuffer(18);
-	//bmins.allocateBuffer(18);
-	//bmaxs.allocateBuffer(18);
-	picoSamples::setup();
+	dataSamples::setup( inifile );
 }
 
 int
 fileSource::getSamples( int milliSleep )
 {
+#ifdef fixit
 	if ( infile.fail() ) {
 		throw sExc( "no more file data" );
 	}
@@ -54,4 +49,7 @@ fileSource::getSamples( int milliSleep )
 	rawSampSeq = rawi;
 
 	return n;
+#else
+    return 0;
+#endif
 }

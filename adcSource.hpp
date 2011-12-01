@@ -28,4 +28,6 @@ public:
 	getSamples( int milliSleep );
     bool
     liveData() { return true; }
+    bool
+    rawSamples() { return true; }
 };

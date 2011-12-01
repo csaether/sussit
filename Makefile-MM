@@ -3,7 +3,6 @@ ROOT=../
 
 # PROJ_CFLAGS=-ggdb
 
-SOURCE=dataSamples.o sussit.o adcSource.o cBuff.o stdafx.o sussChanges.o ini.o
-# inih/INIReader.o
+SOURCE=fileSource.o dataSamples.o sussit.o adcSource.o cBuff.o stdafx.o sussChanges.o ini.o
 
 include $(ROOT)/makedefs

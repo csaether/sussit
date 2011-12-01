@@ -22,6 +22,7 @@ using namespace std;
 #include "cBuff.hpp"
 #include "sExc.hpp"
 #include "dataSamples.hpp"
+#include "fileSource.hpp"
 
 #ifdef WIN32
 #include "windows.h"
@@ -30,7 +31,6 @@ using namespace std;
 #include "PScope.h"
 #include "picoSamples.hpp"
 #include "picoScope.hpp"
-#include "fileSource.hpp"
 
 #endif // WIN32
 

@@ -37,11 +37,13 @@ public:
 	virtual void
         setup( const char *inifname = "cfgsuss.ini" );
 	virtual void
-		startSampling() = 0;
+    startSampling() {}
 	virtual int
-		getSamples( int milliSleep ) = 0;
+    getSamples( int milliSleep ) { return 0; }
 	virtual bool
 		liveData() { return false; }
+    virtual bool
+    rawSamples() { return false; }
 	// virtual picoSamples *
 	// 	isPico() { return 0; }
 };

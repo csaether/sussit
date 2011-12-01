@@ -57,8 +57,9 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
     // raw data is not phase adjusted (previously it was)
     unsigned newvals = 0;
 
-    if ( dsp ) {  // have picosource flag now also
-        setNumLegs( dsp->NumLegs );
+    setNumLegs( dsp->NumLegs );
+
+    if ( dsp->rawSamples() ) {
 
         dsp->startSampling();
 
@@ -92,7 +93,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
     sout << ",V2 starting at " << thetime() << endl;
 
     while ( !maxcycles || (nCyci < maxcycles) ) try {
-        if ( dsp ) {
+        if ( dsp->rawSamples() ) {
             newvals = dsp->getSamples( 77 );
             //      cout << "got back " << newvals << endl;
 
@@ -113,7 +114,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
             //writeCycleBurst( dsp, lastTimeStampCycle - 1 );
             //writeCycleBurst( dsp, lastTimeStampCycle );
 
-            if ( dsp ) {
+            if ( livedata ) {
                 ifstream controlfile;
                 controlfile.open( "runsuss.txt", ios::in );
                 if ( !controlfile ) {

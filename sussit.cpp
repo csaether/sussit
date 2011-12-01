@@ -87,8 +87,9 @@ int main(int argc,
     cout << SamplesPerCycle << " spc, " << nsecsper/2 << " nanosecs per sample, ";
     cout << AvgNSamples << " oversampling" << endl;
 
-#ifdef WIN32
     fileSource fs;
+    dataSamples ds;
+#ifdef WIN32
     picoScope ps;
 #else
     adcSource as;
@@ -109,12 +110,13 @@ int main(int argc,
         if ( writesamples ) {
             susser.setRawOut( basefname.c_str() );
         }
-    } else try {
+    } else {
+        try {
             // reading either raw sample or cycle data to process
             if ( basename.empty() ) {
                 throw sExc("Need a filename, dude");
             }
-#ifdef WIN32
+
             susser.setNumLegs( 1 );  // only one leg for my picoscope
             string fname = "../../scopedata/";
             fname += basename;
@@ -126,19 +128,21 @@ int main(int argc,
                 // open stream for cycle data in
                 fname += "-cyc.dat";
                 susser.openCyclesIn( fname.c_str() );
+                dsp = &ds;
             }
-#endif // WIN32, no raw data file input on debian - FIX?
-            // null dsp if cycle samples
-      } catch ( exception &x ) {
+
+        } catch ( sExc &x ) {
+            cout << x.msg() << endl;
+            return 1;
+        } catch ( exception &x ) {
             cout << x.what() << endl;
             return 1;
-      }
+        }
+    }
 
     try {
-        if ( dsp ) {
-            // catch errors before forking
-            dsp->setup();
-        }
+        // catch errors before forking
+        dsp->setup();
 
         if ( !basefname.empty() ) {
             susser.setConsOut( basefname.c_str() );
@@ -155,7 +159,7 @@ int main(int argc,
 
     } catch ( sExc &x ) {
         cout << x.msg() << endl;
-        return 1;
+        return 2;
     } catch ( exception &x ) {
         cout << x.what() << endl;
         return 2;
