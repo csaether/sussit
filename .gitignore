@@ -1,6 +1,0 @@
-*.o
-*.map
-sussit
-inih/
-!inih/ini.h
-!inih/ini.c

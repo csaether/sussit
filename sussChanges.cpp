@@ -750,7 +750,7 @@ sussChanges::setBurstOut( const char *fnamebase )
 {
     string fname(fnamebase);
     fname += "-burst.dat";
-    burstOut.open( fname.c_str(), ios::binary | ios::out  );
+    burstOut.open( fname.c_str(), ios::binary | ios::out );
     if ( !burstOut ) {
         throw sExc( "create burstOut failed" );
     }
