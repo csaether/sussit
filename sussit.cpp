@@ -25,7 +25,7 @@ int main(int argc,
 */
 {
     sussChanges susser;
-    dataSamples *dsp = 0;
+    dataSamples *dsp = 0;  // bug if not set somewhere later
 
     string basename, basefname;
     if ( argc > 1 ) {
@@ -78,6 +78,9 @@ int main(int argc,
         }
     }
 
+    // this is for picoscope and actual sample rate will be calculated
+    // by looking at zero crossings on the first set of samples.  If
+    // this initial guess is way off that will probably not work right.
     int spsec = SamplesPerCycle*60;
     int nsecsper = 1000000000/spsec;
     // needs to be multiple of 50 nanosecs - why the 200, instead of 100?
@@ -117,9 +120,7 @@ int main(int argc,
                 throw sExc("Need a filename, dude");
             }
 
-            susser.setNumLegs( 1 );  // only one leg for my picoscope
-            string fname = "../../scopedata/";
-            fname += basename;
+            string fname(basefname);
             if ( samplesource ) {
                 fname += "-raw.dat";
                 fs.open( fname.c_str() );

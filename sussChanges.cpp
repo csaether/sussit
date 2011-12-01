@@ -90,7 +90,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
     sout << ",Oversampling: " << AvgNSamples << endl;
     sout << ",chunkSize: " << chunkSize << endl;
     sout << ",chgDiff: " << chgDiff << endl;
-    sout << ",V2 starting at " << thetime() << endl;
+    sout << ",V3 starting at " << thetime() << endl;
 
     while ( !maxcycles || (nCyci < maxcycles) ) try {
         if ( dsp->rawSamples() ) {
@@ -101,7 +101,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 
             writeRawOut( dsp );
         } else {
-            readCycles( 60, 10873 );
+            readCycles( 60, dsp->WattFudgeDivor );
         }
 
         doChunks();
@@ -148,21 +148,26 @@ sussChanges::openCyclesIn( const char *fname )
 }
 
 void
-sussChanges::readCycles( int numcycles, int wattfudgedivor )
+sussChanges::readCycles( int numcycles, int wattfudgedivor[MaxLegs] )
 {
     if ( cyclesIn.fail() ) {
         throw sExc( "no more file data" );
     }
     prevCyci = nCyci;
-    int realreac[2];
+    int16_t val, realreac[2*MaxLegs];
     int count;
+    unsigned leg;
     for ( count = 0; count < numcycles; count++, nCyci++ ) {
-        cyclesIn.read( (char*)realreac, 8 );
+        cyclesIn.read( (char*)realreac, 4*numLegs );
         if ( cyclesIn.eof() ) {
             break;
         }
-        realPowerLeg[0].s( realreac[0]/wattfudgedivor, nCyci );  // re-fudge
-        reactivePowerLeg[0].s( realreac[1]/wattfudgedivor, nCyci );
+        for ( leg = 0; leg < numLegs; leg++ ) {
+            val = realreac[2*leg];
+            realPowerLeg[leg].s( val, nCyci );
+            val = realreac[2*leg+1];
+            reactivePowerLeg[leg].s( val, nCyci );
+        }
     }
 }
 
@@ -199,17 +204,17 @@ sussChanges::doCycles( dataSamples *dsp )
     }
     // write out cycle real and reactive power data if requested
     if ( cycleOutp ) {
+        // legs number of <real, reactive> int pairs unfudged
         uint64_t i;
-        int val, realreac[MaxLegs*2];
+        int16_t val, realreac[MaxLegs*2];
         for ( i = prevCyci; i < nCyci; i++ ) {
             for ( leg = 0; leg < numLegs; leg++ ) {
-                // times wattfudge for re-fudging
-                val = (int)realPowerLeg[leg][i];
-                realreac[leg*2] = val*dsp->WattFudgeDivor[leg];
-                val = (int)reactivePowerLeg[leg][i];
-                realreac[leg*2+1] = val*dsp->WattFudgeDivor[leg];
+                val = realPowerLeg[leg][i];
+                realreac[leg*2] = val;
+                val = reactivePowerLeg[leg][i];
+                realreac[leg*2+1] = val;
             }
-            cycleOutp->write( (char*)realreac, 8*numLegs );
+            cycleOutp->write( (char*)realreac, 4*numLegs );
         }
     }
 }
@@ -332,7 +337,7 @@ void
 sussChanges::firstTime( dataSamples *dsp )
 {
     unsigned leg;
-    if ( dsp ) {
+    if ( dsp->rawSamples() ) {
         if ( (int)dsp->avgSampSeq < (2*SamplesPerCycle) ) {
             throw sExc("not enough initial samples");
         }
@@ -390,7 +395,7 @@ sussChanges::firstTime( dataSamples *dsp )
         }
         doCycles( dsp );
     } else {
-        readCycles( 60, 10873 );
+        readCycles( 60, dsp->WattFudgeDivor );
     }
 
     doChunks();
@@ -535,7 +540,7 @@ sussChanges::doChanges( dataSamples *dsp )
                 }
                 endrunout( cout );
 
-                startVali = (chnki - chunkRun + 1)*chunkSize - 1;  // start of stable run chunk
+                startVali = (chnki - chunkRun + 1)*chunkSize;  // start of stable run chunk
 
                 if ( startVali <= endCyci ) {
                     throw sExc( "what the - startVali less than endCyci??" );

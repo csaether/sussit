@@ -30,4 +30,6 @@ public:
     liveData() { return true; }
     bool
     rawSamples() { return true; }
+    adcSource *
+    isAdc() { return this; }
 };

@@ -78,7 +78,7 @@ class sussChanges
 //  void
 //      calcChangeArea();
     void
-        readCycles( int numcycles, int wattfudgedivor );
+        readCycles( int numcycles, int wattfudgedivor[MaxLegs] );
     void
         timestampout( ostream &out );
 

@@ -1,7 +1,7 @@
 #pragma once
 extern int SamplesPerCycle;
 extern int AvgNSamples;
-class picoSamples;
+class adcSource;
 
 const unsigned MaxChannels = 8;
 const unsigned MaxLegs = 8;
@@ -44,6 +44,8 @@ public:
 		liveData() { return false; }
     virtual bool
     rawSamples() { return false; }
+    virtual adcSource *
+    isAdc() { return 0; }
 	// virtual picoSamples *
 	// 	isPico() { return 0; }
 };

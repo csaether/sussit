@@ -96,11 +96,12 @@ cfg_value_callback( void *thisp, const char *section,
 
  */
 {
-    adcSource *asp = (adcSource*)thisp;
+    dataSamples *dsp = (dataSamples*)thisp;
+    adcSource *asp = dsp->isAdc();
     string sect( section ), name;
     unsigned leg, chan;
 
-    if ( sect == "adcSetup" ) {
+    if ( sect == "adcSetup" && asp ) {
         name = cname;
         if ( name == "channels" ) {
             asp->setchannels = value;
@@ -111,24 +112,24 @@ cfg_value_callback( void *thisp, const char *section,
         } else if ( name == "ignore" ) {
             asp->setignore = value;
         }
-    } else if ( sect == "adcZeroVal" ) {
+    } else if ( sect == "adcZeroVal" && asp ) {
         chan = asp->checkChan( atoi( cname ) );
         asp->zeroVal[chan] = atoi( value );
     } else if ( sect == "legVoltChan" ) {
-        leg = asp->checkLeg( atoi( cname ) );
-        asp->VoltChan[leg] = asp->checkChan( atoi( value ) );
+        leg = dsp->checkLeg( atoi( cname ) );
+        dsp->VoltChan[leg] = dsp->checkChan( atoi( value ) );
     } else if ( sect == "legAmpChan" ) {
-        leg = asp->checkLeg( atoi( cname ) );
-        asp->AmpChan[leg] = asp->checkChan( atoi( value ) );
+        leg = dsp->checkLeg( atoi( cname ) );
+        dsp->AmpChan[leg] = dsp->checkChan( atoi( value ) );
     } else if ( sect == "legWattFudgeDivor" ) {
-        leg = asp->checkLeg( atoi( cname ) );
-        asp->WattFudgeDivor[leg] = atoi( value );
+        leg = dsp->checkLeg( atoi( cname ) );
+        dsp->WattFudgeDivor[leg] = atoi( value );
     } else if ( sect == "legHumPower" ) {
-        leg = asp->checkLeg( atoi( cname ) );
-        asp->HumPower[leg] = atoi( value );
+        leg = dsp->checkLeg( atoi( cname ) );
+        dsp->HumPower[leg] = atoi( value );
     } else if ( sect == "legHumReactive" ) {
-        leg = asp->checkLeg( atoi( cname ) );
-        asp->HumReactive[leg] = atoi( value );
+        leg = dsp->checkLeg( atoi( cname ) );
+        dsp->HumReactive[leg] = atoi( value );
     }
 
     return 1;  // success to ini_parse
