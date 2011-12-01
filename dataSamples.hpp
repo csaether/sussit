@@ -35,7 +35,7 @@ public:
     cBuff<int16_t> &
         ampSamples(int leg) { return ChannelData[ AmpChan[leg] ]; }
 	virtual void
-        setup( const char *inifname = "cfgsuss.ini" ) = 0;
+        setup( const char *inifname = "cfgsuss.ini" );
 	virtual void
 		startSampling() = 0;
 	virtual int

@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "adcSource.hpp"
 #include <fcntl.h>
-#include "inih/ini.h"
 
 adcSource::~adcSource(void)
 {
@@ -25,92 +24,15 @@ adcSource::open( const char *fname )
     }
 }
 
-static int
-cfg_value_callback( void *thisp, const char *section,
-                    const char *cname, const char *value )
-/*
-  [adcSetup]
-  channels = c012
-  speed = hz6800000
-  dupes = d8
-  ignore = i0
-
-  [adcZeroVal]
-  0:8184  ; channel:value
-  1:8180
-
-  [legVoltChan]
-  0:1  ; leg:voltchan
-  1:1
-
-  [legAmpChan]
-  0:0  ; leg:ampchan
-  1:2
-
-  [legWattFudgeDivor]
-  0:1134  ; leg:value
-  1:1130
-
-  [humPower]
-  0:15  ; leg:value - subtract to get to zero
-
-  [humReactive]
-  0:14  ; leg;value  - subtract to get to zero
-
- */
-{
-    adcSource *asp = (adcSource*)thisp;
-    string sect( section ), name;
-    unsigned leg, chan;
-
-    if ( sect == "adcSetup" ) {
-        name = cname;
-        if ( name == "channels" ) {
-            asp->setchannels = value;
-        } else if ( name == "speed" ) {
-            asp->setspeed = value;
-        } else if ( name == "dupes" ) {
-            asp->setdupes = value;
-        } else if ( name == "ignore" ) {
-            asp->setignore = value;
-        }
-    } else if ( sect == "adcZeroVal" ) {
-        chan = asp->checkChan( atoi( cname ) );
-        asp->zeroVal[chan] = atoi( value );
-    } else if ( sect == "legVoltChan" ) {
-        leg = asp->checkLeg( atoi( cname ) );
-        asp->VoltChan[leg] = asp->checkChan( atoi( value ) );
-    } else if ( sect == "legAmpChan" ) {
-        leg = asp->checkLeg( atoi( cname ) );
-        asp->AmpChan[leg] = asp->checkChan( atoi( value ) );
-    } else if ( sect == "legWattFudgeDivor" ) {
-        leg = asp->checkLeg( atoi( cname ) );
-        asp->WattFudgeDivor[leg] = atoi( value );
-    } else if ( sect == "legHumPower" ) {
-        leg = asp->checkLeg( atoi( cname ) );
-        asp->HumPower[leg] = atoi( value );
-    } else if ( sect == "legHumReactive" ) {
-        leg = asp->checkLeg( atoi( cname ) );
-        asp->HumReactive[leg] = atoi( value );
-    }
-
-    return 1;  // success to ini_parse
-}
-
 void
 adcSource::setup( const char *cfgfile )
 {
-    int sts;
-    sts = ini_parse( cfgfile, cfg_value_callback, this );
-    if ( sts ) {
-        cout << "ini_parse failed: " << sts << endl;
-    }
+    dataSamples::setup( cfgfile );
 
     this->open();
 
     stagecnt = 10000*4;  // 10k samples, 4 channels
     stagep = new int16_t[stagecnt];  // FIX - need to calculate this
-    allocateChannelBuffers();
 }
 
 void
