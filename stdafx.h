@@ -37,6 +37,7 @@ using namespace std;
 #ifndef WIN32
 /* #include "adcSamples.hpp" */
 #include "adcSource.hpp"
+#include <sqlite3.h>
 #endif  // not WIN32
 #include "sussChanges.hpp"
 

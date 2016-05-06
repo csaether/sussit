@@ -96,6 +96,7 @@ public:
         setChgDiff( int chg ) { chgDiff = chg; }
 
     // methods
+    // the "set" methods first close if open, then open specified file
     void
         setConsOut( const char *fnamebase );
     void

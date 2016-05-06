@@ -3,8 +3,12 @@
 
 #include "stdafx.h"
 #include <string.h>
+#include <iostream>
+#include <sstream>
 #include <errno.h>
 #include <sys/wait.h>
+#include <dirent.h>
+#include <fnmatch.h>
 
 #ifdef WIN32
 int _tmain(int argc,
@@ -13,12 +17,12 @@ int _tmain(int argc,
 int main(int argc,
          char *argv[])
 #endif
-// <filebasename> [p | pr | pc | r | c] [minutes] [samplespercycle] [avgN]
-/* filebasename - base name, always write event log
-   p - picoscope source, only write event log
-   pr - picoscope source, write raw sample data
-   pc - picoscope source, write cycle data
-   pb - cycle burst
+// <directory> [p | pr | pc | r | c] [minutes] [samplespercycle] [avgN]
+/* directory - will add "vizdata-<version>-", always write event log
+   p - picoscope or live source, only write event log
+   pr - picoscope or live source, + write raw sample data
+   pc - picoscope or live source, + write cycle data
+   pb - + cycle burst
    r - use raw sample data source
    c - use cycle data source
    minutes - minute limit for picoscope data, defaults to 30 for scope if not present
@@ -27,11 +31,11 @@ int main(int argc,
     sussChanges susser;
     dataSamples *dsp = 0;  // bug if not set somewhere later
 
-    string basename, basefname;
+    string argname, basefname;
     if ( argc > 1 ) {
-        basename = argv[1];
+        argname = argv[1];
     } else {
-        cout << "Usage: <filebasename> [p | pr | pc | r | c] [minutes] [samplespercycle] [avgN]" << endl;
+        cout << "Usage: <directory> [p | pr | pc | r | c] [minutes] [samplespercycle] [avgN]" << endl;
         return 1;
     }
 
@@ -42,12 +46,12 @@ int main(int argc,
     bool picosource = false;
     char ct;
 
-    if ( basename.empty() ) {
+    if ( argname.empty() ) {
         picosource = true;  // everything else false - no output files
     } else if ( argc > 2 ) {
         ct = argv[2][0];
         if ( ct == 'p' ) {
-            picosource = true;
+            picosource = true;  // this just means adc on electrum
             if ( argv[2][1] == 'r' ) {
                 writesamples = true;
             } else if ( argv[2][1] == 'c' ) {
@@ -97,11 +101,57 @@ int main(int argc,
 #else
     adcSource as;
 #endif
-    if ( !basename.empty() && picosource ) {
-        basefname = basename;
+    if ( !argname.empty() && picosource ) {
+        struct dirent **nlist;
+        int num;
+        // add trailing slash if missing
+        if (argname[-1] != '/') {
+            argname += "/";
+        }
+        num = ::scandir(argname.c_str(), &nlist, 0, versionsort);
+        if (num < 0) {
+            cout << "not a directory" << endl;
+            return 1;
+        }
+        int ver = 0;
+        while (num--) {
+            bool nm;
+            // always have an events file, right?
+            nm = fnmatch("*vizdata-*-e.csv", nlist[num]->d_name, 0);
+            if ( nm == 0 && basefname.empty() ) {  // matches and have not set filename yet
+                string fnam(nlist[num]->d_name);  // get into a string
+                fnam.erase(fnam.size()-6);  // lose the known ending
+                size_t vix = fnam.rfind('-');  // back up past what should be a version string
+                if (vix == string::npos) {
+                    cout << "expecting to find a dash" << endl;
+                    return 1;
+                }
+                // advance past the dash and should be some string left
+                if (++vix == fnam.size()) {
+                    cout << "expecting to find a version" << endl;
+                    return 1;
+                }
+                // get the version characters
+                ver = atoi(fnam.substr(vix).c_str());
+                if (ver == 0) {
+                    cout << "version should not be zero" << endl;
+                    return 1;
+                }
+                // erase the existing version characters, and append new version
+                fnam.erase(vix);
+                ostringstream oss;
+                oss << ver + 1;
+                fnam.append(oss.str());
+                // set the basefname and we will not do this branch again
+                basefname = argname + fnam;
+            }
+            free(nlist[num]);
+        }
+        free(nlist);
+
     } else {
         basefname = "../";
-        basefname += basename;
+        basefname += argname;
     }
 
     if ( picosource ) {
@@ -116,7 +166,7 @@ int main(int argc,
     } else {
         try {
             // reading either raw sample or cycle data to process
-            if ( basename.empty() ) {
+            if ( argname.empty() ) {
                 throw sExc("Need a filename, dude");
             }
 

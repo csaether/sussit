@@ -17,7 +17,7 @@ sussChanges::sussChanges(void) : lastCycAri(0),
         preChgout(12),
         postChgout(12),  // will only have 1 to 2 chunks ahead
         lastTimeStampCycle(0),
-        cyclesPerTimeStamp(60*15),
+        cyclesPerTimeStamp(60*15),  // or 15 seconds
         livedata(false),
         consOutp(0),
         eventsOutp(0),
@@ -596,8 +596,15 @@ sussChanges::doChanges( dataSamples *dsp )
 void
 sussChanges::setConsOut( const char *fnamebase )
 {
+    // check if already open, and close if so.
+    if ( consOut.is_open() ) {
+        consOut.close();
+        consOut.clear();  // not sure not needed, but
+        consOutp = 0;
+    }
+
     if ( !fnamebase ) {
-        return;
+        return;  // will have been null if did not really want this
     }
 
     string fname(fnamebase);
@@ -611,6 +618,13 @@ sussChanges::setConsOut( const char *fnamebase )
 void
 sussChanges::setEventsOut( const char *fnamebase )
 {
+    // check if already open, close if so.
+    if ( eventsOut.is_open() ) {
+        eventsOut.close();
+        eventsOut.clear();  // see above
+        eventsOutp = 0;
+    }
+
     if ( !fnamebase ) {
 //      chgOutp = &cout;
         return;
@@ -730,6 +744,12 @@ sussChanges::calcChangeArea()
 void
 sussChanges::setRawOut( const char *fnamebase )
 {
+    if ( rawOut.is_open() ) {
+        rawOut.close();
+        rawOut.clear();
+        rawOutp = 0;
+    }
+
     string fname(fnamebase);
     fname += "-raw.dat";
     rawOut.open( fname.c_str(), ios::binary | ios::out  );
@@ -742,6 +762,12 @@ sussChanges::setRawOut( const char *fnamebase )
 void
 sussChanges::setCycleOut( const char *fnamebase )
 {
+    if ( cycleOut.is_open() ) {
+        cycleOut.close();
+        cycleOut.clear();
+        cycleOutp = 0;
+    }
+
     string fname(fnamebase);
     fname += "-cyc.dat";
     cycleOut.open( fname.c_str(), ios::binary | ios::out  );
@@ -754,6 +780,12 @@ sussChanges::setCycleOut( const char *fnamebase )
 void
 sussChanges::setBurstOut( const char *fnamebase )
 {
+    if ( burstOut.is_open() ) {
+        burstOut.close();
+        burstOut.clear();
+        burstOutp = 0;
+    }
+
     string fname(fnamebase);
     fname += "-burst.dat";
     burstOut.open( fname.c_str(), ios::binary | ios::out );
@@ -766,7 +798,7 @@ sussChanges::setBurstOut( const char *fnamebase )
 void
 sussChanges::writeRawOut( dataSamples *dsp )
 {
-    if ( !rawOutp ) {
+    if ( !rawOutp || dsp->isAdc() ) {
         return;
     }
 #ifdef WIN32
