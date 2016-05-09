@@ -3,12 +3,8 @@
 
 #include "stdafx.h"
 #include <string.h>
-#include <iostream>
-#include <sstream>
 #include <errno.h>
 #include <sys/wait.h>
-#include <dirent.h>
-#include <fnmatch.h>
 
 #ifdef WIN32
 int _tmain(int argc,
@@ -21,7 +17,7 @@ int main(int argc,
 /* directory - will add "vizdata-<version>-", always write event log
    p - picoscope or live source, only write event log
    pr - picoscope or live source, + write raw sample data
-   pc - picoscope or live source, + write cycle data
+   pc - picoscope or live source, + write cycle data and sample bursts
    pb - + cycle burst
    r - use raw sample data source
    c - use cycle data source
@@ -102,54 +98,14 @@ int main(int argc,
     adcSource as;
 #endif
     if ( !argname.empty() && picosource ) {
-        struct dirent **nlist;
-        int num;
-        // add trailing slash if missing
-        if (argname[-1] != '/') {
-            argname += "/";
-        }
-        num = ::scandir(argname.c_str(), &nlist, 0, versionsort);
-        if (num < 0) {
-            cout << "not a directory" << endl;
+        // Looks like we have a valid directory, at least
+        susser.setBaseDirectory( argname );
+        if ( !susser.setBaseFilename() ) {
             return 1;
         }
-        int ver = 0;
-        while (num--) {
-            bool nm;
-            // always have an events file, right?
-            nm = fnmatch("*vizdata-*-e.csv", nlist[num]->d_name, 0);
-            if ( nm == 0 && basefname.empty() ) {  // matches and have not set filename yet
-                string fnam(nlist[num]->d_name);  // get into a string
-                fnam.erase(fnam.size()-6);  // lose the known ending
-                size_t vix = fnam.rfind('-');  // back up past what should be a version string
-                if (vix == string::npos) {
-                    cout << "expecting to find a dash" << endl;
-                    return 1;
-                }
-                // advance past the dash and should be some string left
-                if (++vix == fnam.size()) {
-                    cout << "expecting to find a version" << endl;
-                    return 1;
-                }
-                // get the version characters
-                ver = atoi(fnam.substr(vix).c_str());
-                if (ver == 0) {
-                    cout << "version should not be zero" << endl;
-                    return 1;
-                }
-                // erase the existing version characters, and append new version
-                fnam.erase(vix);
-                ostringstream oss;
-                oss << ver + 1;
-                fnam.append(oss.str());
-                // set the basefname and we will not do this branch again
-                basefname = argname + fnam;
-            }
-            free(nlist[num]);
-        }
-        free(nlist);
-
+        basefname = susser.getBaseFilename();
     } else {
+        // kind of forgot what this branch is about..
         basefname = "../";
         basefname += argname;
     }
@@ -161,7 +117,7 @@ int main(int argc,
         dsp = &as;
 #endif
         if ( writesamples ) {
-            susser.setRawOut( basefname.c_str() );
+            susser.setRawOut( true );
         }
     } else {
         try {
@@ -196,17 +152,17 @@ int main(int argc,
         dsp->setup();
 
         if ( !basefname.empty() ) {
-            susser.setConsOut( basefname.c_str() );
+            susser.setConsOut( true );
         }
 
         if ( writecycles ) {
-            susser.setCycleOut( basefname.c_str() );
+            susser.setCycleOut( true );
         }
 
         if ( writebursts ) {
-            susser.setBurstOut( basefname.c_str() );
+            susser.setBurstOut( true );
         }
-        susser.setEventsOut( basefname.c_str() );
+        susser.setEventsOut( true );
 
     } catch ( sExc &x ) {
         cout << x.msg() << endl;

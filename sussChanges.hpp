@@ -2,7 +2,7 @@
 
 class sussChanges
 {
-    uint64_t lastCycAri;  // doCycles - sample index
+    uint64_t lastCycAri;  // doCycles - sample (r=raw) index
     uint64_t nCyci;      // doCycle - next full cycle
     uint64_t prevCyci;   // doCycles - start of unprocessed run
     uint64_t cHunki;     // doChunk - last processed chunk index
@@ -31,9 +31,14 @@ class sussChanges
     int lastDurCycles;
 //  int changeArea;
     uint64_t lastTimeStampCycle;
+    uint64_t lastFileRollover;
     unsigned cyclesPerTimeStamp;
+    unsigned cyclesPerFileRollover;
     unsigned stableCnt;
     bool livedata;
+
+    string baseDirname;
+    string baseFilename;
     ofstream consOut;
     ostream *consOutp;
     ofstream eventsOut;
@@ -96,17 +101,25 @@ public:
         setChgDiff( int chg ) { chgDiff = chg; }
 
     // methods
+    void
+        setBaseDirectory( const string & dirpath );
+    bool
+        setBaseFilename();
+    string
+        getBaseFilename() { return baseFilename; }
+    void
+        rollOutputFiles();
     // the "set" methods first close if open, then open specified file
     void
-        setConsOut( const char *fnamebase );
+        setConsOut( bool firsttime=false );
     void
-        setEventsOut( const char *fnamebase );
+        setEventsOut( bool firsttime=false );
     void
-        setRawOut( const char *fnamebase );
+        setRawOut( bool firsttime=false );
     void
-        setCycleOut( const char *fnamebase );
+        setCycleOut( bool firsttime=false );
     void
-        setBurstOut( const char *fnamebase );
+        setBurstOut( bool firsttime=false );
     void
         processData( dataSamples *dsp,uint64_t maxcycles = 0 );
     void

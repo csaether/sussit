@@ -1,5 +1,10 @@
 #include "stdafx.h"
 #include "sussChanges.hpp"
+#include <string.h>
+#include <iostream>
+#include <sstream>
+#include <dirent.h>
+#include <fnmatch.h>
 
 int SamplesPerCycle = 260;
 int AvgNSamples = 1;
@@ -17,7 +22,9 @@ sussChanges::sussChanges(void) : lastCycAri(0),
         preChgout(12),
         postChgout(12),  // will only have 1 to 2 chunks ahead
         lastTimeStampCycle(0),
+        lastFileRollover(0),
         cyclesPerTimeStamp(60*15),  // or 15 seconds
+        cyclesPerFileRollover(60*60*60*12),  // or every 12 hours
         livedata(false),
         consOutp(0),
         eventsOutp(0),
@@ -44,6 +51,68 @@ sussChanges::setNumLegs( int legs )
         reactiveChunksLeg[i].allocateBuffer( 6 );  // 2^6 = 64
     }
     numLegs = legs;
+}
+
+void
+sussChanges::setBaseDirectory( const string & dirpath )
+{
+    baseDirname.assign( dirpath );
+    if ( baseDirname[-1] != '/' ) {
+        // add trailing slash
+        baseDirname += "/";
+    }
+    // not checking to see whether it actually exists here
+}
+
+bool
+sussChanges::setBaseFilename()
+{
+    struct dirent **nlist;
+    int num;
+    // versionsort specifies some sort of magic that orders by version found in entries
+    num = ::scandir(baseDirname.c_str(), &nlist, 0, versionsort);
+    if (num < 0) {
+        cout << "specified directory not found" << endl;
+        return false;
+    }
+
+    string basefname;
+    int ver = 0;
+    while (num--) {
+        bool nm;
+        // always have an events file, right?
+        nm = fnmatch("*vizdata-*-e.csv", nlist[num]->d_name, 0);
+        if ( nm == 0 && basefname.empty() ) {  // matches and have not set filename yet
+            string fnam(nlist[num]->d_name);  // get into a string
+            fnam.erase(fnam.size()-6);  // lose the known ending
+            size_t vix = fnam.rfind('-');  // back up past what should be a version string
+            if (vix == string::npos) {
+                cout << "no vizdata* file: expecting to find a dash" << endl;
+                return false;
+            }
+            // advance past the dash and should be some string left
+            if (++vix == fnam.size()) {
+                cout << "no vizdata* file: expecting to find a version" << endl;
+                return false;
+            }
+            // get the version characters
+            ver = atoi(fnam.substr(vix).c_str());
+            if (ver == 0) {
+                cout << "no vizdata* file: version should not be zero" << endl;
+                return false;
+            }
+            // erase the existing version characters, and append new version
+            fnam.erase(vix);
+            ostringstream oss;
+            oss << ver + 1;
+            fnam.append(oss.str());
+            // set the basefname and we will not do this branch again
+            basefname = baseDirname + fnam;
+        }
+        free(nlist[num]);
+    }
+    free(nlist);
+    baseFilename.assign( basefname );
 }
 
 void
@@ -106,7 +175,39 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
 
         doChunks();
 
-        unsigned cd = (unsigned)(nCyci - 1 - lastTimeStampCycle);
+        // see whether to roll over files, but only when stable
+        unsigned cd = 0;  // only looking at diffs, so does not have to be 64 bits
+        if ( stableCnt >= chunkRun ) {
+            cd = (unsigned)(nCyci - 1 - lastFileRollover);
+            if ( cd > cyclesPerFileRollover ) {
+                // bump version number on base filename. only fail if new file create fails.
+                bool sts = setBaseFilename();
+                if ( !sts ) {
+                    sout << "failed to set new file name, quitting" << endl;
+                    break;
+                }
+                // calling these w/o arg will close and reopen with current base filename.
+                cout << "bumping base files to " << baseFilename << endl;
+                setRawOut();
+                setConsOut();
+                setCycleOut();
+                setBurstOut();
+                setEventsOut();
+
+                sout << ",SamplesPerCycle: " << SamplesPerCycle << endl;
+                sout << ",Oversampling: " << AvgNSamples << endl;
+                sout << ",chunkSize: " << chunkSize << endl;
+                sout << ",chgDiff: " << chgDiff << endl;
+                sout << ",V3 starting at " << thetime() << endl;
+
+                lastFileRollover = nCyci - 1;
+                // force a timestamp in the new file
+                lastTimeStampCycle = 0;
+            }
+        }
+
+        // see whether it is time to write a timestamp
+        cd = (unsigned)(nCyci - 1 - lastTimeStampCycle);
         if ( cd > cyclesPerTimeStamp ) {
             timestampout( cout );
             timestampout( *eventsOutp );
@@ -114,6 +215,7 @@ sussChanges::processData( dataSamples *dsp, uint64_t maxcycles )
             //writeCycleBurst( dsp, lastTimeStampCycle - 1 );
             //writeCycleBurst( dsp, lastTimeStampCycle );
 
+            // confirm that we should keep going
             if ( livedata ) {
                 ifstream controlfile;
                 controlfile.open( "runsuss.txt", ios::in );
@@ -458,6 +560,21 @@ sussChanges::doChanges( dataSamples *dsp )
 // while we are looking for another run when stableCnt is less than chunkRun
 // runVal is updated with the current value regardless, letting it drift slowly
 {
+    /*
+      General story here is we get called here from the main process loop when there
+      is a new set of samples available.  Each cycle has been calculated, as well as
+      groups of cycles, referred to as chunks.  Finding where a load change has occurred
+      first involves looking at difference between the most recent "stable" chunk value
+      and newer chunks to be considered.  If the difference exceeds a threshold, then
+      we will look into the individual cycles for the exact cycle.  The reasoning was
+      to avoid spurious changes because the cycle level changes were jumpy.  Not sure
+      if that still makes sense, but that is what is happening now.
+      If "stableCnt" is equal to or greater than "chunkRun" we are currently in a stable run.
+      When we have seen a change at or beyond the change threshold, stableCnt will be set to
+      zero, which means that we are looking for the end of the transition, which is when we
+      see the start of a new stable run.  Of course we may not see the start of a new stable
+      run within the set of cycles being considered, so stableCnt may be zero already when called.
+     */
     int chnkwatts, chnkvars, cval, wattdiff, chnkvalsi;
     uint64_t trycy, chnki = nextVali/chunkSize;
     unsigned leg;
@@ -499,7 +616,7 @@ sussChanges::doChanges( dataSamples *dsp )
                     }
                     endCyci = trycy;
                 }
-
+                // note that we are in a transition
                 stableCnt = 0;
                 drift = runWatts() - startRunWatts();
                 lastDurCycles = (int)(endCyci - startVali);
@@ -569,7 +686,8 @@ sussChanges::doChanges( dataSamples *dsp )
                         writeCycleBurst( dsp, trycy );
                 }
 
-                // set the new starting run watts and vars.  Use the first stable chunk values after the transition.
+                // set the new starting run watts and vars.
+                // Use the first stable chunk values after the transition.
                 for ( leg = 0; leg < numLegs; leg++ ) {
                     startRunWattsLeg[leg]
                         = realPwrChunksLeg[leg][ chnki - chunkRun ];
@@ -594,20 +712,22 @@ sussChanges::doChanges( dataSamples *dsp )
 }
 
 void
-sussChanges::setConsOut( const char *fnamebase )
+sussChanges::setConsOut( bool firsttime )
 {
     // check if already open, and close if so.
     if ( consOut.is_open() ) {
         consOut.close();
         consOut.clear();  // not sure not needed, but
         consOutp = 0;
+    } else if ( !firsttime ) {
+        return;
     }
 
-    if ( !fnamebase ) {
+    if ( baseFilename.empty() ) {
         return;  // will have been null if did not really want this
     }
 
-    string fname(fnamebase);
+    string fname(baseFilename);
     fname += "-s.csv";
     consOut.open( fname.c_str() );
     if ( !consOut ) {
@@ -616,21 +736,23 @@ sussChanges::setConsOut( const char *fnamebase )
     consOutp = &consOut;
 }
 void
-sussChanges::setEventsOut( const char *fnamebase )
+sussChanges::setEventsOut( bool firsttime )
 {
     // check if already open, close if so.
     if ( eventsOut.is_open() ) {
         eventsOut.close();
         eventsOut.clear();  // see above
         eventsOutp = 0;
+    } else if ( !firsttime ) {
+        return;
     }
 
-    if ( !fnamebase ) {
+    if ( baseFilename.empty() ) {
 //      chgOutp = &cout;
         return;
     }
 
-    string fname(fnamebase);
+    string fname(baseFilename);
     fname += "-e.csv";
     eventsOut.open( fname.c_str() );
     if ( !eventsOut ) {
@@ -742,15 +864,17 @@ sussChanges::calcChangeArea()
 #endif // deadcode
 
 void
-sussChanges::setRawOut( const char *fnamebase )
+sussChanges::setRawOut( bool firsttime )
 {
     if ( rawOut.is_open() ) {
         rawOut.close();
         rawOut.clear();
         rawOutp = 0;
+    } else if ( !firsttime ) {
+        return;
     }
 
-    string fname(fnamebase);
+    string fname(baseFilename);
     fname += "-raw.dat";
     rawOut.open( fname.c_str(), ios::binary | ios::out  );
     if ( !rawOut ) {
@@ -760,15 +884,17 @@ sussChanges::setRawOut( const char *fnamebase )
 }
 
 void
-sussChanges::setCycleOut( const char *fnamebase )
+sussChanges::setCycleOut( bool firsttime )
 {
     if ( cycleOut.is_open() ) {
         cycleOut.close();
         cycleOut.clear();
         cycleOutp = 0;
+    } else if ( !firsttime ) {
+        return;
     }
 
-    string fname(fnamebase);
+    string fname(baseFilename);
     fname += "-cyc.dat";
     cycleOut.open( fname.c_str(), ios::binary | ios::out  );
     if ( !cycleOut ) {
@@ -778,15 +904,17 @@ sussChanges::setCycleOut( const char *fnamebase )
 }
 
 void
-sussChanges::setBurstOut( const char *fnamebase )
+sussChanges::setBurstOut( bool firsttime )
 {
     if ( burstOut.is_open() ) {
         burstOut.close();
         burstOut.clear();
         burstOutp = 0;
+    } else if ( !firsttime ) {
+        return;
     }
 
-    string fname(fnamebase);
+    string fname(baseFilename);
     fname += "-burst.dat";
     burstOut.open( fname.c_str(), ios::binary | ios::out );
     if ( !burstOut ) {
