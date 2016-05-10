@@ -21,7 +21,7 @@ int main(int argc,
    pb - + cycle burst
    r - use raw sample data source
    c - use cycle data source
-   minutes - minute limit for picoscope data, defaults to 30 for scope if not present
+   minutes - minute limit for picoscope data, defaults to forever if not present
 */
 {
     sussChanges susser;
@@ -65,8 +65,6 @@ int main(int argc,
     int minutes = 0;
     if ( argc > 3 ) {
         minutes = atoi( argv[3] );
-    } else if ( picosource ) {
-        minutes = 30;
     }
     if ( argc > 4 ) {
         SamplesPerCycle = atoi( argv[4] );
